@@ -1,0 +1,32 @@
+name: Tests
+
+on: [push]
+
+jobs:
+  tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      # Download code from repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: yarn
+
+      # Install dependencies
+      - name: Install dependencies
+        run: yarn install
+
+      # Run linter
+      - name: Run linter
+        run: yarn lint
+
+      # Run tests
+      - name: Run unit tests
+        run: yarn test
