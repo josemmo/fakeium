@@ -1,10 +1,10 @@
-interface Location {
+export interface Location {
     filename: string
     line: number
     column: number
 }
 
-type LogEntry = {
+export type LogEntry = {
     id: number
     type: 'get'
     value: string
@@ -37,6 +37,14 @@ export default class Report {
      */
     public size(): number {
         return this.logEntries.size
+    }
+
+    /**
+     * Get total size (including flushed log entries)
+     * @return Total size
+     */
+    public totalSize(): number {
+        return this.flushedSize + this.size()
     }
 
     /**

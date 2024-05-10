@@ -1,6 +1,7 @@
+import { readFileSync } from 'fs'
 import { ExecutionError, MemoryLimitError, ModuleNotFoundError, TimeoutError } from './errors'
 import { LoggerInterface } from './logger'
-import Report from './Report'
+import Report, { LogEntry } from './Report'
 import ivm from 'isolated-vm'
 
 interface MockiumInstanceOptions {
@@ -26,6 +27,11 @@ type ModuleSourceCode = Buffer | string
  * @return     Module source code or `null` if not found
  */
 type ModuleResolver = (url: URL) => Promise<ModuleSourceCode | null>
+
+/**
+ * JavaScript bootstrap code to run inside the sandbox
+ */
+const BOOTSTRAP_CODE = readFileSync(new URL('sandbox/bootstrap.js', import.meta.url), 'utf-8')
 
 /**
  * Mockium (from "mock" and "Chromium") is a simple yet *safe* instrumented environment for running
@@ -103,8 +109,9 @@ export default class Mockium {
             })
         }
 
-        // Setup context
+        // Create context
         const context = await this.isolate.createContext()
+        await this.setupContext(context)
 
         // Instantiate module
         const module = await this.getModule(specifier, undefined, sourceCode)
@@ -228,5 +235,25 @@ export default class Mockium {
         this.options.logger?.debug(`Compiled module ${url.href}`)
 
         return module
+    }
+
+    /**
+     * Setup context
+     * @param context Execution context
+     */
+    private async setupContext(context: ivm.Context): Promise<void> {
+        await context.evalClosure(
+            BOOTSTRAP_CODE,
+            [
+                this.report.totalSize() + 1,
+                (entry: LogEntry) => this.report.add(entry),
+                (...args: string[]) => this.options.logger?.debug('<SANDBOX>', ...args),
+            ],
+            {
+                arguments: {
+                    reference: true,
+                },
+            },
+        )
     }
 }
