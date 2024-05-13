@@ -1,46 +1,69 @@
+interface BaseEvent {
+    /** Unique event ID */
+    id: number
+    /** Event type */
+    type: ReportEvent['type']
+    /** Path to variable that triggered the event (e.g., `navigator.geolocation.getCurrentPosition`) */
+    path: string
+    /** Closest location of the code that triggered the event */
+    location: Location
+}
+
 export interface Location {
+    /** Absolute URL to file, including protocol */
     filename: string
     line: number
     column: number
 }
 
-export type LogEntry = {
-    id: number
-    type: 'get'
-    value: string
-    location: Location
+export type Value = {
+    /** ID of event */
+    ref: number
 } | {
-    id: number
-    type: 'call'
-    value: string
-    /** Log entry IDs for known arguments */
-    args: number[]
-    location: Location
+    /** Literal value */
+    literal: string | number | boolean | null
 } | {
-    id: number
-    type: 'string'
-    value: string
-    location: Location
+    /** Unknown value */
+    unknown: true
 }
 
+export interface GetEvent extends BaseEvent {
+    type: 'GetEvent'
+    value: Value
+}
+
+export interface SetEvent extends BaseEvent {
+    type: 'SetEvent'
+    value: Value
+}
+
+export interface CallEvent extends BaseEvent {
+    type: 'CallEvent'
+    arguments: Value[]
+    /** Whether call comes from instantiating a new object */
+    isConstructor: boolean
+}
+
+export type ReportEvent = GetEvent | SetEvent | CallEvent
+
 /**
- * Helper class for storing and traversing log entries reported by Mockium.
+ * Helper class for storing and traversing events reported by Mockium.
  */
 export default class Report {
     private flushedSize = 0
-    /** Map of log entries indexed by log entry ID */
-    private readonly logEntries = new Map<number, LogEntry>()
+    /** Map of events indexed by event ID */
+    private readonly events = new Map<number, ReportEvent>()
 
     /**
      * Get size
-     * @return Current number of log entries
+     * @return Current number of events
      */
     public size(): number {
-        return this.logEntries.size
+        return this.events.size
     }
 
     /**
-     * Get total size (including flushed log entries)
+     * Get total size (including flushed events)
      * @return Total size
      */
     public totalSize(): number {
@@ -48,28 +71,28 @@ export default class Report {
     }
 
     /**
-     * Get all log entries
-     * @return Iterable of log entries
+     * Get all events
+     * @return Iterable of events
      */
-    public getAll(): Iterable<LogEntry> {
-        return this.logEntries.values()
+    public getAll(): Iterable<ReportEvent> {
+        return this.events.values()
     }
 
     /**
-     * Add log entry
+     * Add event
      * @package
-     * @param logEntry Log entry
+     * @param event Event
      */
-    public add(logEntry: LogEntry): void {
-        this.logEntries.set(logEntry.id, logEntry)
+    public add(event: ReportEvent): void {
+        this.events.set(event.id, event)
     }
 
     /**
-     * Flush log entries to free memory
+     * Flush events to free memory
      */
     public flush(): void {
-        this.flushedSize += this.logEntries.size
-        this.logEntries.clear()
+        this.flushedSize += this.events.size
+        this.events.clear()
     }
 
     /**

@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs'
 import { ExecutionError, MemoryLimitError, ModuleNotFoundError, TimeoutError } from './errors'
 import { LoggerInterface } from './logger'
-import Report, { LogEntry } from './Report'
+import Report, { ReportEvent } from './Report'
 import ivm from 'isolated-vm'
 
 interface MockiumInstanceOptions {
@@ -246,8 +246,8 @@ export default class Mockium {
             BOOTSTRAP_CODE,
             [
                 this.report.totalSize() + 1,
-                (entry: LogEntry) => this.report.add(entry),
-                (...args: string[]) => this.options.logger?.debug('<SANDBOX>', ...args),
+                (event: ReportEvent) => this.report.add(event),
+                (...args: string[])  => this.options.logger?.debug('<SANDBOX>', ...args),
             ],
             {
                 arguments: {

@@ -17,6 +17,18 @@ describe('Mockium', () => {
         mockium.dispose()
     })
 
+    it('runs scripts with resolver', async () => {
+        const mockium = new Mockium({ origin: 'https://localhost' })
+        mockium.setResolver(async url => {
+            if (url.href === 'https://localhost/index.js') {
+                return '// This is the index\n'
+            }
+            return null
+        })
+        await mockium.run('index.js')
+        await mockium.run('404.js', '// Not coming from resolver\n')
+    })
+
     it('throws an error for unresolved modules', async () => {
         const mockium = new Mockium()
         try {
@@ -28,6 +40,54 @@ describe('Mockium', () => {
             mockium.dispose()
         }
         assert.fail('Mockium#run() did not throw any error')
+    })
+
+    it('resolves module specifiers', async () => {
+        const mockium = new Mockium()
+        mockium.setResolver(async url => {
+            if (url.pathname === '/index.js') {
+                return 'import "./subdir/b.js";\n' +
+                       'import "subdir/c.js";\n' +
+                       'alert("Hi from index.js");\n'
+            }
+            if (url.pathname === '/subdir/b.js') {
+                return 'alert("Hi from b.js");\n'
+            }
+            if (url.pathname === '/subdir/c.js') {
+                return 'import "../d.js";\n' +
+                       'alert("Hi from c.js");\n'
+            }
+            if (url.pathname === '/d.js') {
+                return 'alert("Hi from d.js");\n'
+            }
+            if (url.pathname === '/something/with%20spaces.js') {
+                return '// Empty\n'
+            }
+            if (url.pathname === '/hash.js') {
+                return 'alert("Hi from a module with fragment");\n'
+            }
+            if (url.pathname === '/crash.js') {
+                return 'import "fake/path/to/module.js";\n' +
+                       'alert("This line is never reached");\n'
+            }
+            return null
+        })
+
+        // Run successful code
+        await mockium.run('./index.js')
+        await mockium.run('something/with spaces.js')
+        await mockium.run('hash.js#this-is-a-fragment')
+
+        // Run unsuccessful code
+        try {
+            await mockium.run('./crash.js')
+            throw new Error('Did not crash when importing missing module')
+        } catch (e) {
+            expect(e).to.be.an.instanceOf(ModuleNotFoundError)
+            expect(e).to.have.a.property('message').that.matches(/^Cannot find package "fake\/path\/to\/module.js"/)
+        }
+
+        mockium.dispose()
     })
 
     it('propagates unhandled sandbox errors', async () => {
@@ -71,5 +131,26 @@ describe('Mockium', () => {
             mockium.dispose()
         }
         assert.fail('Mockium#run() did not throw any error')
+    })
+})
+
+describe('Mockium sandbox', () => {
+    it('assigns different IDs to subsequent API calls', async () => {
+        const mockium = new Mockium()
+        mockium.setResolver(async () => {
+            return '(async () => {\n' +
+                   '    const a = JSON.stringify({tag: "a"});\n' +
+                   '    const b = JSON.stringify({tag: "b"});\n' +
+                   '    doNotLogMe();\n' +
+                   '    chrome.something.toCall(a);\n' +
+                   '    chrome.something.toCall(b);\n' +
+                   '})();\n'
+        })
+        await mockium.run('index.js')
+        let expectedId = 1
+        for (const event of mockium.getReport().getAll()) {
+            expect(event).to.have.a.property('id').equal(expectedId++)
+        }
+        mockium.dispose()
     })
 })
