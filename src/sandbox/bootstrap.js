@@ -25,15 +25,15 @@ const { Error, Proxy, Reflect, parseInt } = globalThis
  */
 
 /** @type {import('isolated-vm').Reference} */
-const EVENT_PROXY = $1
+const EVENT_PROXY = $1 // eslint-disable-line no-undef
 
 /** @type {import('isolated-vm').Reference} */
-const DEBUG_PROXY = $2
+const DEBUG_PROXY = $2 // eslint-disable-line no-undef
 
 /**
  * Next event ID
  */
-let nextId = parseInt(`${$0.copySync()}`)
+let nextId = parseInt(`${$0.copySync()}`) // eslint-disable-line no-undef
 
 /**
  * Emit event
@@ -242,8 +242,10 @@ function createMock(path, template, thisArg) {
             // Create or get child mock
             const subpath = resolvePath(path, property)
             if (!(property in target)) {
+                emitDebug(`Mocked "${subpath}" object`)
                 target[property] = createMock(subpath)
             } else if (!isMock(target[property])) {
+                emitDebug(`Patched existing "${subpath}" object`)
                 target[property] = createMock(subpath, target[property], target)
             }
 
@@ -305,6 +307,6 @@ for (const property of [
     'WebAssembly',
 ]) {
     newGlobalThis[property] = createMock(property, originalGlobalThis[property])
-    delete originalGlobalThis[property]
+    delete originalGlobalThis[property] // eslint-disable-line @typescript-eslint/no-dynamic-delete
 }
 Object.setPrototypeOf(globalThis, createMock('globalThis', newGlobalThis))
