@@ -153,4 +153,14 @@ describe('Mockium sandbox', () => {
         }
         mockium.dispose()
     })
+
+    it('assigns sequential IDs between report flushes', async () => {
+        const mockium = new Mockium()
+        await mockium.run('a.js', 'browser.calling.a()')
+        expect(mockium.getReport().has({ id: 4, type: 'CallEvent', path: 'browser.calling.a' })).to.be.true
+        mockium.getReport().flush()
+        await mockium.run('b.js', 'browser.calling.b()')
+        expect(mockium.getReport().has({ type: 'CallEvent', path: 'browser.calling.a' })).to.be.false
+        expect(mockium.getReport().has({ id: 8, type: 'CallEvent', path: 'browser.calling.b' })).to.be.true
+    })
 })
