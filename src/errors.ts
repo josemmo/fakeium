@@ -10,6 +10,13 @@ export class ModuleNotFoundError extends MockiumError {
 }
 
 /**
+ * Error thrown when the source code of a module could not be parsed.
+ */
+export class ParsingError extends MockiumError {
+    // Intentionally left blank
+}
+
+/**
  * Error that encapsulates an uncaught error thrown inside the execution sandbox.
  */
 export class ExecutionError extends MockiumError {

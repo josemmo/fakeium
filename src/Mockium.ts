@@ -1,5 +1,5 @@
 import { readFileSync } from 'fs'
-import { ExecutionError, MemoryLimitError, ModuleNotFoundError, TimeoutError } from './errors'
+import { ExecutionError, MemoryLimitError, ModuleNotFoundError, ParsingError, TimeoutError } from './errors'
 import { LoggerInterface } from './logger'
 import Report, { ReportEvent } from './Report'
 import ivm from 'isolated-vm'
@@ -200,6 +200,7 @@ export default class Mockium {
      * @param  sourceCode Module source code (overrides resolver)
      * @return            Module instance
      * @throws {ModuleNotFoundError} if failed to resolve module
+     * @throws {ParsingError} if failed to parse source code
      */
     private async getModule(specifier: string, referrer?: ivm.Module, sourceCode?: ModuleSourceCode): Promise<ivm.Module> {
         // Resolve absolute URL for module
@@ -227,9 +228,15 @@ export default class Mockium {
         if (this.isolate === null) {
             throw new ReferenceError('Illegal instance state: missing isolate')
         }
-        const module = this.isolate.compileModuleSync(`${sourceCode}`, {
-            filename: url.href,
-        })
+        let module: ivm.Module
+        try {
+            module = this.isolate.compileModuleSync(`${sourceCode}`, { filename: url.href })
+        } catch (e) {
+            if (e instanceof SyntaxError) {
+                throw new ParsingError(e.message)
+            }
+            throw e
+        }
         this.pathToModule.set(url.href, module)
         this.moduleToPath.set(module, url.href)
         this.options.logger?.debug(`Compiled module ${url.href}`)

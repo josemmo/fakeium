@@ -1,5 +1,5 @@
 import { assert, expect } from 'chai'
-import { ExecutionError, MemoryLimitError, ModuleNotFoundError, TimeoutError } from './errors'
+import { ExecutionError, MemoryLimitError, ModuleNotFoundError, ParsingError, TimeoutError } from './errors'
 import Mockium from './Mockium'
 
 describe('Mockium', () => {
@@ -35,6 +35,19 @@ describe('Mockium', () => {
             await mockium.run('example.js')
         } catch (e) {
             expect(e).to.be.an.instanceOf(ModuleNotFoundError)
+            return
+        } finally {
+            mockium.dispose()
+        }
+        assert.fail('Mockium#run() did not throw any error')
+    })
+
+    it('throws an error for invalid source code', async () => {
+        const mockium = new Mockium()
+        try {
+            await mockium.run('example.js', 'This is not JavaScript code')
+        } catch (e) {
+            expect(e).to.be.an.instanceOf(ParsingError)
             return
         } finally {
             mockium.dispose()
