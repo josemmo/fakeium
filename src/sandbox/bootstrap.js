@@ -12,8 +12,11 @@ const FullMockSymbol = Symbol(`FullMock-${Math.random()}`)
 /** Symbol used as a property key to store the value ID of an object */
 const IdSymbol = Symbol(`Id-${Math.random()}`)
 
+/** Symbol used to taint previously visited callbacks */
+const VisitedSymbol = Symbol(`Visited-${Math.random()}`)
+
 /** Reference to original properties from globalThis object */
-const { Error, Proxy, Reflect, parseInt } = globalThis
+const { Error, Proxy, Promise, Reflect, parseInt } = globalThis
 
 
 //#region Proxies
@@ -226,6 +229,19 @@ function createMock(path, template, thisArg) {
                 return target[property]
             }
 
+            // Handle thenable functions
+            if (property === 'then') {
+                if (!(property in target)) {
+                    let resolve, reject
+                    target[property] = new Promise((res, rej) => {
+                        resolve = res
+                        reject = rej
+                    })
+                    visitCallback([resolve, reject], proxy)
+                }
+                return target[property]
+            }
+
             // Create or get child mock
             const subpath = resolvePath(path, property)
             if (!(property in target)) {
@@ -261,6 +277,29 @@ function createMock(path, template, thisArg) {
     })
 
     return proxy
+}
+
+/**
+ * Visit callback if not already visited
+ * @param {any[]} candidates         Candidates to pick first valid callback from
+ * @param {any}   [valueToPropagate] Optional value to propagate as the first call argument
+ */
+function visitCallback(candidates, valueToPropagate) {
+    try {
+        for (const callback of candidates) {
+            if (typeof callback === 'function' && callback[VisitedSymbol] !== VisitedSymbol) {
+                callback[VisitedSymbol] = VisitedSymbol
+                if (valueToPropagate === undefined) {
+                    callback()
+                } else {
+                    callback(valueToPropagate)
+                }
+                break
+            }
+        }
+    } catch (_) {
+        // Ignore error and keep running
+    }
 }
 
 

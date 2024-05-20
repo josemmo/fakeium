@@ -261,4 +261,33 @@ describe('Mockium sandbox', () => {
         mockium.dispose()
         expect(mockium.getReport().size()).to.equal(0)
     })
+
+    it('logs thenable function calls', async () => {
+        const mockium = new Mockium()
+        await mockium.run('index.js',
+            '(async () => {\n' +
+            '    const res = await aPromise();\n' +
+            '    console.log(res);\n' +
+            '    const sameRes = await res;\n' +
+            '    if (res !== sameRes) {\n' +
+            '        throw new Error("Resolving the same promise must yield the same value");\n' +
+            '    }\n' +
+            '    reachedEnd(sameRes);\n' +
+            '})();\n'
+        )
+        expect(mockium.getReport().has({ type: 'CallEvent', path: 'aPromise', returns: { ref: 2 } })).to.be.true
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'console.log',
+            arguments: [{ ref: 2 }],
+            returns: { literal: undefined },
+        })).to.be.true
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'reachedEnd',
+            arguments: [{ ref: 2 }],
+            returns: { ref: 6 },
+        })).to.be.true
+        mockium.dispose()
+    })
 })
