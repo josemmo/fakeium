@@ -290,4 +290,77 @@ describe('Mockium sandbox', () => {
         })).to.be.true
         mockium.dispose()
     })
+
+    it('runs code with module imports', async () => {
+        const mockium = new Mockium()
+        mockium.setResolver(async url => {
+            if (url.href === 'file:///index.js') {
+                return 'import { callMe } from "./test.js";\n' +
+                       'import "./subdir/hey.js";\n' +
+                       'index();\n' +
+                       'export default {\n' +
+                       '  start: () => thisShouldNotBeCalled(),\n' +
+                       '}\n'
+            }
+            if (url.href === 'file:///test.js') {
+                return '/* Hi from test.js! */\n' +
+                       'export const callMe = () => iGotCalled();\n'
+            }
+            if (url.href === 'file:///subdir/hey.js') {
+                return 'import { callMe as callMeFn } from "../test.js";\n' +
+                       'import "../a [weird] (name).js";\n' +
+                       'callMeFn();\n';
+            }
+            if (url.href === 'file:///a%20[weird]%20(name).js') {
+                return 'weirdName();\n';
+            }
+            return null
+        })
+        await mockium.run('./index.js')
+        expect(mockium.getReport().getAll()).to.deep.equal([
+            {
+                type: 'GetEvent',
+                path: 'weirdName',
+                value: { ref: 1 },
+                location: { filename: 'file:///a%20[weird]%20(name).js', line: 1, column: 1 },
+            },
+            {
+                type: 'CallEvent',
+                path: 'weirdName',
+                arguments: [],
+                returns: { ref: 2 },
+                isConstructor: false,
+                location: { filename: 'file:///a%20[weird]%20(name).js', line: 1, column: 1 },
+            },
+            {
+                type: 'GetEvent',
+                path: 'iGotCalled',
+                value: { ref: 3 },
+                location: { filename: 'file:///test.js', line: 2, column: 29 },
+            },
+            {
+                type: 'CallEvent',
+                path: 'iGotCalled',
+                arguments: [],
+                returns: { ref: 4 },
+                isConstructor: false,
+                location: { filename: 'file:///test.js', line: 2, column: 29 },
+            },
+            {
+                type: 'GetEvent',
+                path: 'index',
+                value: { ref: 5 },
+                location: { filename: 'file:///index.js', line: 3, column: 1 },
+            },
+            {
+                type: 'CallEvent',
+                path: 'index',
+                arguments: [],
+                returns: { ref: 6 },
+                isConstructor: false,
+                location: { filename: 'file:///index.js', line: 3, column: 1 },
+            }
+        ])
+        mockium.dispose()
+    })
 })
