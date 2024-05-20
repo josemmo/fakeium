@@ -1,6 +1,4 @@
 interface BaseEvent {
-    /** Unique event ID */
-    id: number
     /** Event type */
     type: ReportEvent['type']
     /** Path to variable that triggered the event (e.g., `navigator.geolocation.getCurrentPosition`) */
@@ -17,20 +15,13 @@ export interface Location {
 }
 
 export type Value = {
-    /** ID of event */
+    /** Object ID */
     ref: number
     literal?: never
-    unknown?: never
 } | {
     ref?: never
     /** Literal value */
-    literal: string | number | boolean | null
-    unknown?: never
-} | {
-    ref?: never
-    literal?: never
-    /** Unknown value */
-    unknown: true
+    literal: string | number | boolean | null | undefined
 }
 
 export interface GetEvent extends BaseEvent {
@@ -46,6 +37,7 @@ export interface SetEvent extends BaseEvent {
 export interface CallEvent extends BaseEvent {
     type: 'CallEvent'
     arguments: Value[]
+    returns: Value
     /** Whether call comes from instantiating a new object */
     isConstructor: boolean
 }
@@ -59,24 +51,14 @@ type Query = Partial<MappedOmit<ReportEvent, 'location'>> & { location?: Partial
  * Helper class for storing and traversing events reported by Mockium.
  */
 export default class Report {
-    private flushedSize = 0
-    /** Map of events indexed by event ID */
-    private readonly events = new Map<number, ReportEvent>()
+    private readonly events: ReportEvent[] = []
 
     /**
      * Get size
      * @return Current number of events
      */
     public size(): number {
-        return this.events.size
-    }
-
-    /**
-     * Get total size (including flushed events)
-     * @return Total size
-     */
-    public totalSize(): number {
-        return this.flushedSize + this.size()
+        return this.events.length
     }
 
     /**
@@ -85,31 +67,22 @@ export default class Report {
      * @param event Event
      */
     public add(event: ReportEvent): void {
-        this.events.set(event.id, event)
+        this.events.push(event)
     }
 
     /**
-     * Flush events to free memory
+     * Clear report
      */
-    public flush(): void {
-        this.flushedSize += this.events.size
-        this.events.clear()
-    }
-
-    /**
-     * Reset instance
-     */
-    public reset(): void {
-        this.flush()
-        this.flushedSize = 0
+    public clear(): void {
+        this.events.length = 0
     }
 
     /**
      * Get all events
-     * @return Iterable of events
+     * @return Array of events
      */
-    public getAll(): IterableIterator<ReportEvent> {
-        return this.events.values()
+    public getAll(): ReportEvent[] {
+        return this.events
     }
 
     /**
@@ -119,11 +92,6 @@ export default class Report {
      */
     public* findAll(query: Query): IterableIterator<ReportEvent> {
         for (const event of this.getAll()) {
-            // Matches ID
-            if (query.id !== undefined && query.id !== event.id) {
-                continue
-            }
-
             // Matches type
             if (query.type !== undefined && query.type !== event.type) {
                 continue
@@ -178,6 +146,14 @@ export default class Report {
                 }
             }
 
+            // Matches return value
+            if (
+                ('returns' in query) && query.returns &&
+                (!('returns' in event) || !this.matchesValue(query.returns, event.returns))
+            ) {
+                continue
+            }
+
             // Matches isConstructor
             if (
                 ('isConstructor' in query) &&
@@ -218,10 +194,7 @@ export default class Report {
         if (query.ref !== undefined && query.ref !== target.ref) {
             return false
         }
-        if (query.literal !== undefined && query.literal !== target.literal) {
-            return false
-        }
-        if (query.unknown !== undefined && query.unknown !== target.unknown) {
+        if (query.literal !== target.literal) {
             return false
         }
         return true

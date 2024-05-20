@@ -117,7 +117,7 @@ describe('Mockium', () => {
     })
 
     it('throws an error on timeout', async () => {
-        const mockium = new Mockium({timeout: 500})
+        const mockium = new Mockium({ timeout: 500 })
         try {
             await mockium.run('endless.js', 'while (true) {;;}')
         } catch (e) {
@@ -130,7 +130,7 @@ describe('Mockium', () => {
     }).timeout(1000)
 
     it('throw an error on memory exhaustion', async () => {
-        const mockium = new Mockium({maxMemory: 8})
+        const mockium = new Mockium({ maxMemory: 8 })
         const code = 'const garbage = [];\n' +
                      'while (true) {\n' +
                      '    garbage.push("abcdefghijklmnopqrstuvwxyz".repeat(1024));\n' +
@@ -148,32 +148,117 @@ describe('Mockium', () => {
 })
 
 describe('Mockium sandbox', () => {
-    it('assigns different IDs to subsequent API calls', async () => {
+    it('assigns incremental value IDs', async () => {
         const mockium = new Mockium()
         mockium.setResolver(async () => {
             return '(async () => {\n' +
-                   '    const a = JSON.stringify({tag: "a"});\n' +
-                   '    const b = JSON.stringify({tag: "b"});\n' +
-                   '    doNotLogMe();\n' +
-                   '    chrome.something.toCall(a);\n' +
-                   '    chrome.something.toCall(b);\n' +
+                   '    const a = JSON.stringify({ tag: "a" });\n' +
+                   '    const b = JSON.stringify({ tag: "b" });\n' +
+                   '    callMe(a);\n' +
+                   '    callMe(b);\n' +
                    '})();\n'
         })
         await mockium.run('index.js')
-        let expectedId = 1
-        for (const event of mockium.getReport().getAll()) {
-            expect(event).to.have.a.property('id').equal(expectedId++)
-        }
+        expect(mockium.getReport().getAll()).to.deep.equal([
+            {
+                type: 'GetEvent',
+                path: 'JSON',
+                value: { ref: 1 },
+                location: { filename: 'file:///index.js', line: 2, column: 15 },
+            },
+            {
+                type: 'GetEvent',
+                path: 'JSON.stringify',
+                value: { ref: 2 },
+                location: { filename: 'file:///index.js', line: 2, column: 20 },
+            },
+            {
+                type: 'CallEvent',
+                path: 'JSON.stringify',
+                arguments: [{ ref: 3 }],
+                returns: { literal: '{"tag":"a"}' },
+                isConstructor: false,
+                location: { filename: 'file:///index.js', line: 2, column: 20 },
+            },
+            {
+                type: 'GetEvent',
+                path: 'JSON',
+                value: { ref: 1 },
+                location: { filename: 'file:///index.js', line: 3, column: 15 },
+            },
+            {
+                type: 'GetEvent',
+                path: 'JSON.stringify',
+                value: { ref: 2 },
+                location: { filename: 'file:///index.js', line: 3, column: 20 },
+            },
+            {
+                type: 'CallEvent',
+                path: 'JSON.stringify',
+                arguments: [ { ref: 4 } ],
+                returns: { literal: '{"tag":"b"}' },
+                isConstructor: false,
+                location: { filename: 'file:///index.js', line: 3, column: 20 },
+            },
+            {
+                type: 'GetEvent',
+                path: 'callMe',
+                value: { ref: 5 },
+                location: { filename: 'file:///index.js', line: 4, column: 5 },
+            },
+            {
+                type: 'CallEvent',
+                path: 'callMe',
+                arguments: [{ literal: '{"tag":"a"}' }],
+                returns: { ref: 6 },
+                isConstructor: false,
+                location: { filename: 'file:///index.js', line: 4, column: 5 },
+            },
+            {
+                type: 'GetEvent',
+                path: 'callMe',
+                value: { ref: 5 },
+                location: { filename: 'file:///index.js', line: 5, column: 5 },
+            },
+            {
+                type: 'CallEvent',
+                path: 'callMe',
+                arguments: [{ literal: '{"tag":"b"}' }],
+                returns: { ref: 7 },
+                isConstructor: false,
+                location: { filename: 'file:///index.js', line: 5, column: 5 },
+            }
+        ])
         mockium.dispose()
     })
 
-    it('assigns sequential IDs between report flushes', async () => {
+    it('assigns incremental value IDs after clearing and dispose', async () => {
         const mockium = new Mockium()
-        await mockium.run('a.js', 'browser.calling.a()')
-        expect(mockium.getReport().has({ id: 4, type: 'CallEvent', path: 'browser.calling.a' })).to.be.true
-        mockium.getReport().flush()
-        await mockium.run('b.js', 'browser.calling.b()')
-        expect(mockium.getReport().has({ type: 'CallEvent', path: 'browser.calling.a' })).to.be.false
-        expect(mockium.getReport().has({ id: 8, type: 'CallEvent', path: 'browser.calling.b' })).to.be.true
+
+        await mockium.run('first.js', 'first()')
+        expect(mockium.getReport().has({ type: 'CallEvent', path: 'first', returns: { ref: 2 } })).to.be.true
+        mockium.getReport().clear()
+
+        await mockium.run('second.js', 'second()')
+        expect(mockium.getReport().has({ path: 'first' })).to.be.false
+        expect(mockium.getReport().has({ type: 'CallEvent', path: 'second', returns: { ref: 4 } })).to.be.true
+        mockium.dispose()
+
+        await mockium.run('third.js', 'third()')
+        expect(mockium.getReport().has({ path: 'first' })).to.be.false
+        expect(mockium.getReport().has({ path: 'second' })).to.be.false
+        expect(mockium.getReport().has({ type: 'CallEvent', path: 'third', returns: { ref: 2 } })).to.be.true
+    })
+
+    it('logs simple function calls', async() => {
+        const mockium = new Mockium()
+        await mockium.run('index.js', 'console.log(something, 123)')
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'console.log',
+            arguments: [{ ref: 3 }, { literal: 123 }],
+        })).to.be.true
+        mockium.dispose()
+        expect(mockium.getReport().size()).to.equal(0)
     })
 })

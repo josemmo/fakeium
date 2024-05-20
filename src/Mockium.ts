@@ -47,6 +47,7 @@ export default class Mockium {
     private readonly pathToModule = new Map<string, ivm.Module>()
     private readonly moduleToPath = new Map<ivm.Module, string>()
     private readonly report = new Report()
+    private nextValueId = 1
 
     /**
      * @param options Instance-wide options
@@ -170,9 +171,9 @@ export default class Mockium {
      * You should call this method after working with Mockium to avoid any memory leaks.
      * It *is* safe to reuse the instance after disposing.
      *
-     * @param resetReport Whether to reset report as well
+     * @param clearReport Whether to clear report as well
      */
-    public dispose(resetReport = true): void {
+    public dispose(clearReport = true): void {
         // Clear modules
         this.pathToModule.clear()
         this.moduleToPath.clear()
@@ -187,9 +188,10 @@ export default class Mockium {
             this.isolate = null
         }
 
-        // Reset report
-        if (resetReport) {
-            this.report.reset()
+        // Clear report
+        if (clearReport) {
+            this.report.clear()
+            this.nextValueId = 1
         }
     }
 
@@ -252,8 +254,11 @@ export default class Mockium {
         await context.evalClosure(
             BOOTSTRAP_CODE,
             [
-                this.report.totalSize() + 1,
-                (event: ReportEvent) => this.report.add(event),
+                this.nextValueId,
+                (event: ReportEvent, nextValueId: number) => {
+                    this.report.add(event)
+                    this.nextValueId = nextValueId
+                },
                 (...args: string[])  => this.options.logger?.debug('<SANDBOX>', ...args),
             ],
             {
