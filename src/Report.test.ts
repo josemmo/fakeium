@@ -92,12 +92,21 @@ describe('Report', () => {
                 isConstructor: false,
                 location: TEST_LOCATION,
             },
+            {
+                type: 'CallEvent',
+                path: 'NoArguments',
+                arguments: [],
+                returns: { ref: 4 },
+                isConstructor: true,
+                location: TEST_LOCATION,
+            },
         ]
         const report = new Report()
         report.add(events[0])
         report.add(events[1])
         report.add(events[2])
         report.add(events[3])
+        report.add(events[4])
 
         // Test "findAll" method
         expect(Array.from(report.findAll({}))).to.deep.equal(report.getAll())
@@ -115,7 +124,8 @@ describe('Report', () => {
         expect(report.find({ type: 'GetEvent' })).to.deep.equal(events[0])
         expect(report.find({ value: { literal: 'missing' } })).to.equal(null)
         expect(report.find({ location: { filename: TEST_LOCATION.filename } })).to.deep.equal(events[0])
-        expect(report.find({ isConstructor: true })).to.equal(null)
+        expect(report.find({ isConstructor: true })).to.equal(events[4])
+        expect(report.find({ arguments: [] })).to.equal(events[4])
 
         // Test "has" method
         expect(report.has({ type: 'GetEvent' })).to.be.true

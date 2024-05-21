@@ -123,7 +123,10 @@ export default class Report {
 
             // Matches arguments
             if ('arguments' in query && query.arguments) {
-                if (!('arguments' in event)) {
+                if (
+                    !('arguments' in event) ||
+                    (query.arguments.length === 0 && event.arguments.length !== 0)
+                ) {
                     continue
                 }
                 let matches = true
@@ -194,7 +197,10 @@ export default class Report {
         if (query.ref !== undefined && query.ref !== target.ref) {
             return false
         }
-        if (query.literal !== target.literal) {
+        if (
+            ('literal' in query) &&
+            (!('literal' in target) || query.literal !== target.literal)
+        ) {
             return false
         }
         return true
