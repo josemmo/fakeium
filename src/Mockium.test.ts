@@ -364,6 +364,18 @@ describe('Mockium sandbox', () => {
         mockium.dispose()
     })
 
+    it('runs eval code', async () => {
+        const mockium = new Mockium()
+        await mockium.run('index.js', 'alert(eval("1+1"))')
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'eval',
+            arguments: [ { literal: '1+1' } ],
+            returns: { literal: 2 },
+        })).to.be.true
+        mockium.dispose()
+    })
+
     it('handles constructors', async () => {
         const mockium = new Mockium()
         await mockium.run('index.js',
@@ -438,6 +450,46 @@ describe('Mockium sandbox', () => {
             isConstructor: false,
         })).to.be.true
 
+        mockium.dispose()
+    })
+
+    it('handles calling of functions in several ways', async () => {
+        const mockium = new Mockium()
+        await mockium.run('index.js',
+            'function test() {\n' +
+            '    done();\n' +
+            '}\n' +
+            ';(async () => {\n' +
+            '    something.apply(null, [1, 2, 3]);\n' +
+            '    another.thing.bind({})("hey");\n' +
+            '    await another.something.call(this);\n' +
+            '    test.apply(null, []);\n' +
+            '})();\n'
+        )
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'something',
+            arguments: [ { literal: 1 }, { literal: 2 }, { literal: 3 } ],
+            isConstructor: false,
+        })).to.be.true
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'another.thing',
+            arguments: [ { literal: 'hey' } ],
+            isConstructor: false,
+        })).to.be.true
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'another.something',
+            arguments: [],
+            isConstructor: false,
+        })).to.be.true
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'done',
+            arguments: [],
+            isConstructor: false,
+        })).to.be.true
         mockium.dispose()
     })
 })

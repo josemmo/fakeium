@@ -228,7 +228,7 @@ function createMock(path, template, thisArg) {
             }
 
             // Handle ignored properties
-            if (property === 'prototype') {
+            if (property === 'prototype' || property === 'apply' || property === 'bind' || property === 'call') {
                 return target[property]
             }
 
