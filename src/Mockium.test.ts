@@ -175,7 +175,7 @@ describe('Mockium sandbox', () => {
             {
                 type: 'CallEvent',
                 path: 'JSON.stringify',
-                arguments: [{ ref: 3 }],
+                arguments: [ { ref: 3 } ],
                 returns: { literal: '{"tag":"a"}' },
                 isConstructor: false,
                 location: { filename: 'file:///index.js', line: 2, column: 20 },
@@ -209,7 +209,7 @@ describe('Mockium sandbox', () => {
             {
                 type: 'CallEvent',
                 path: 'callMe',
-                arguments: [{ literal: '{"tag":"a"}' }],
+                arguments: [ { literal: '{"tag":"a"}' } ],
                 returns: { ref: 6 },
                 isConstructor: false,
                 location: { filename: 'file:///index.js', line: 4, column: 5 },
@@ -223,7 +223,7 @@ describe('Mockium sandbox', () => {
             {
                 type: 'CallEvent',
                 path: 'callMe',
-                arguments: [{ literal: '{"tag":"b"}' }],
+                arguments: [ { literal: '{"tag":"b"}' } ],
                 returns: { ref: 7 },
                 isConstructor: false,
                 location: { filename: 'file:///index.js', line: 5, column: 5 },
@@ -256,7 +256,7 @@ describe('Mockium sandbox', () => {
         expect(mockium.getReport().has({
             type: 'CallEvent',
             path: 'console.log',
-            arguments: [{ ref: 3 }, { literal: 123 }],
+            arguments: [ { ref: 3 }, { literal: 123 } ],
         })).to.be.true
         mockium.dispose()
         expect(mockium.getReport().size()).to.equal(0)
@@ -279,13 +279,13 @@ describe('Mockium sandbox', () => {
         expect(mockium.getReport().has({
             type: 'CallEvent',
             path: 'console.log',
-            arguments: [{ ref: 2 }],
+            arguments: [ { ref: 2 } ],
             returns: { literal: undefined },
         })).to.be.true
         expect(mockium.getReport().has({
             type: 'CallEvent',
             path: 'reachedEnd',
-            arguments: [{ ref: 2 }],
+            arguments: [ { ref: 2 } ],
             returns: { ref: 6 },
         })).to.be.true
         mockium.dispose()
@@ -361,6 +361,83 @@ describe('Mockium sandbox', () => {
                 location: { filename: 'file:///index.js', line: 3, column: 1 },
             }
         ])
+        mockium.dispose()
+    })
+
+    it('handles constructors', async () => {
+        const mockium = new Mockium()
+        await mockium.run('index.js',
+            '(async () => {\n' +
+            '    const dateAsJson = new Date("2021-01-02").toJSON();\n' +
+            '    crypto.getRandomValues(new Uint32Array(16));\n' +
+            '    const Thing = getThing();\n' +
+            '    const thing = new Thing(dateAsJson);\n' +
+            '    thing.doSomething();\n' +
+            '    const AsyncThing = await getAsyncThing();\n' +
+            '    new AsyncThing(thing);\n' +
+            '    const req = new XMLHttpRequest();\n' +
+            '    req.open("GET", "https://www.example.com/");\n' +
+            '    req.send();\n' +
+            '})();\n'
+        )
+
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'Date',
+            arguments: [ { literal: '2021-01-02' } ],
+            returns: { ref: 2 },
+            isConstructor: true,
+        })).to.be.true
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'Date().toJSON',
+            arguments: [],
+            returns: { literal: '2021-01-02T00:00:00.000Z' },
+            isConstructor: false,
+        })).to.be.true
+
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'Uint32Array',
+            arguments: [ { literal: 16 } ],
+            returns: { ref: 7 },
+            isConstructor: true,
+        })).to.be.true
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'crypto.getRandomValues',
+            arguments: [ { ref: 7 } ],
+            returns: { ref: 8 },
+            isConstructor: false,
+        })).to.be.true
+
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'getThing',
+            arguments: [ { literal: '2021-01-02T00:00:00.000Z' } ],
+            returns: { ref: 11 },
+            isConstructor: true,
+        })).to.be.true
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'getAsyncThing',
+            arguments: [ { ref: 11 } ],
+            isConstructor: true,
+        })).to.be.true
+
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'XMLHttpRequest',
+            arguments: [],
+            isConstructor: true,
+        })).to.be.true
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'XMLHttpRequest().open',
+            arguments: [ { literal: 'GET' }, { literal: 'https://www.example.com/' } ],
+            isConstructor: false,
+        })).to.be.true
+
         mockium.dispose()
     })
 })

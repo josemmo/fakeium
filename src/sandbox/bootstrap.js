@@ -65,7 +65,7 @@ function emitDebug(...args) {
  */
 function resolvePath(parentPath, property) {
     if (property === '()') {
-        return `${parentPath}()`
+        return parentPath.endsWith('()') ? parentPath : `${parentPath}()`
     }
     return (parentPath === 'globalThis' ? '' : `${parentPath}.`) + property
 }
@@ -164,14 +164,15 @@ function onGetOrSetEvent(type, path, value) {
  * @param {boolean} isConstructor Is call from constructor
  */
 function onCallEvent(path, argArray, returns, isConstructor) {
+    const normalizedPath = path.endsWith('()') ? path.slice(0, -2) : path
     const wrappedArguments = []
     for (const value of argArray) {
         wrappedArguments.push(toEventValue(value))
     }
-    emitDebug(`Called ${path}(${argArray.map(() => '#').join(', ')})`)
+    emitDebug(`Called ${normalizedPath}(${argArray.map(() => '#').join(', ')})`)
     emitEvent({
         type: 'CallEvent',
-        path,
+        path: normalizedPath,
         arguments: wrappedArguments,
         returns: toEventValue(returns),
         isConstructor,
@@ -208,7 +209,9 @@ function createMock(path, template, thisArg) {
     // Create fully mock template if needed
     if (template === undefined) {
         template = function() {
-            return createMock(resolvePath(path, '()'))
+            const subpath = resolvePath(path, '()')
+            emitDebug(`Mocked "${subpath}" object`)
+            return createMock(subpath)
         }
         template[FullMockSymbol] = FullMockSymbol
     }
@@ -265,7 +268,18 @@ function createMock(path, template, thisArg) {
         },
         construct(target, argArray, newTarget) {
             const newInstance = Reflect.construct(target, argArray, newTarget)
-            const newMock = createMock(resolvePath(path, '()'), newInstance)
+            const subpath = resolvePath(path, '()')
+
+            // Wrap new instance in mock if needed
+            let newMock
+            if (isMock(newInstance)) {
+                emitDebug(`"${subpath}" is already a mock, not mocking again`)
+                newMock = newInstance
+            } else {
+                newMock = createMock(subpath, newInstance)
+            }
+
+            // Return value
             onCallEvent(path, argArray, newMock, true)
             return newMock
         },
