@@ -506,6 +506,23 @@ describe('Mockium sandbox', () => {
         mockium.dispose()
     })
 
+    it('handles callbacks and event listeners', async () => {
+        const mockium = new Mockium()
+        await mockium.run('index.js',
+            'window.addEventListener("load", function() {\n' +
+            '    navigator.gotCalled();\n' +
+            '    throw new Error("Crash!");\n' +
+            '    // This line is unreachable, but the program must not crash\n' +
+            '});\n' +
+            '$("#button").click(() => {\n' +
+            '    chrome.also.gotCalled();\n' +
+            '});\n'
+        )
+        expect(mockium.getReport().has({ type: 'CallEvent', path: 'navigator.gotCalled' })).to.be.true
+        expect(mockium.getReport().has({ type: 'CallEvent', path: 'chrome.also.gotCalled' })).to.be.true
+        mockium.dispose()
+    })
+
     it('creates mocks that can be converted to primitive values', async () => {
         const mockium = new Mockium()
         await mockium.run('index.js',

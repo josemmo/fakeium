@@ -180,11 +180,13 @@ function onGetOrSetEvent(type, path, value) {
  */
 function onCallEvent(path, argArray, returns, isConstructor) {
     const normalizedPath = path.endsWith('()') ? path.slice(0, -2) : path
+    emitDebug(`Called ${normalizedPath}(${argArray.map(() => '#').join(', ')})`)
+
+    // Emit event
     const wrappedArguments = []
     for (const value of argArray) {
         wrappedArguments.push(toEventValue(value))
     }
-    emitDebug(`Called ${normalizedPath}(${argArray.map(() => '#').join(', ')})`)
     emitEvent({
         type: 'CallEvent',
         path: normalizedPath,
@@ -193,6 +195,9 @@ function onCallEvent(path, argArray, returns, isConstructor) {
         isConstructor,
         location: getCurrentLocation(),
     })
+
+    // Visit callback arguments (if any)
+    visitCallback(argArray)
 }
 
 
@@ -322,7 +327,7 @@ function createMock(path, template, thisArg) {
 function visitCallback(candidates, valueToPropagate) {
     try {
         for (const callback of candidates) {
-            if (typeof callback === 'function' && callback[VisitedSymbol] !== VisitedSymbol) {
+            if (typeof callback === 'function' && !isMock(callback) && callback[VisitedSymbol] !== VisitedSymbol) {
                 callback[VisitedSymbol] = VisitedSymbol
                 if (valueToPropagate === undefined) {
                     callback()
