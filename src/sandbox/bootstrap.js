@@ -3,6 +3,9 @@
 /** Pattern to extract filename, line and column from stack trace line */
 const TRACE_PATTERN = /  at.* \(?(.+):([0-9]+):([0-9]+)\)?$/
 
+/** Pattern that identifies object properties that do not need to be escaped */
+const SIMPLE_PROPERTY_PATTERN = /^[a-z_#$][a-z0-9_#$]*$/i
+
 /** Symbol to mark objects that are mocks, used to prevent mocking the same object twice */
 const MockSymbol = Symbol(`Mock-${Math.random()}`)
 
@@ -16,7 +19,7 @@ const IdSymbol = Symbol(`Id-${Math.random()}`)
 const VisitedSymbol = Symbol(`Visited-${Math.random()}`)
 
 /** Reference to original properties from globalThis object */
-const { Error, Proxy, Promise, Reflect, parseInt } = globalThis
+const { Error, JSON, Proxy, Promise, Reflect, isNaN, parseInt } = globalThis
 
 
 //#region Proxies
@@ -67,7 +70,19 @@ function resolvePath(parentPath, property) {
     if (property === '()') {
         return parentPath.endsWith('()') ? parentPath : `${parentPath}()`
     }
-    return (parentPath === 'globalThis' ? '' : `${parentPath}.`) + property
+
+    // Parse property
+    if (!isNaN(property)) {
+        property = `[${property}]`
+    } else if (!SIMPLE_PROPERTY_PATTERN.test(property)) {
+        property = `[${JSON.stringify(property)}]`
+    }
+
+    // Build new property
+    if (parentPath === 'globalThis') {
+        return property
+    }
+    return `${parentPath}${property.startsWith('[') ? '' : '.'}${property}`
 }
 
 /**

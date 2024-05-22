@@ -250,6 +250,19 @@ describe('Mockium sandbox', () => {
         expect(mockium.getReport().has({ type: 'CallEvent', path: 'third', returns: { ref: 2 } })).to.be.true
     })
 
+    it('resolves paths in both dot and bracket notation', async () => {
+        const mockium = new Mockium()
+        await mockium.run('index.js',
+            'a.b.c[123];\n' +
+            'a.b.c.d[\'with space\'].e;\n' +
+            'a.b.$1;\n'
+        )
+        expect(mockium.getReport().has({ type: 'GetEvent', path: 'a.b.c[123]' })).to.be.true
+        expect(mockium.getReport().has({ type: 'GetEvent', path: 'a.b.c.d["with space"].e' })).to.be.true
+        expect(mockium.getReport().has({ type: 'GetEvent', path: 'a.b.$1' })).to.be.true
+        mockium.dispose()
+    })
+
     it('logs simple function calls', async() => {
         const mockium = new Mockium()
         await mockium.run('index.js', 'console.log(something, 123)')
