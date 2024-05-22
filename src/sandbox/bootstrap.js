@@ -228,6 +228,12 @@ function createMock(path, template, thisArg) {
             emitDebug(`Mocked "${subpath}" object`)
             return createMock(subpath)
         }
+        template.toString = () => 'function () { [native code] }'
+        template[Symbol.iterator] = function* () {
+            for (let i=0; i<5; i++) {
+                yield createMock(resolvePath(path, `${i}`))
+            }
+        }
         template[FullMockSymbol] = FullMockSymbol
     }
 

@@ -505,4 +505,25 @@ describe('Mockium sandbox', () => {
         })).to.be.true
         mockium.dispose()
     })
+
+    it('creates mocks that can be converted to primitive values', async () => {
+        const mockium = new Mockium()
+        await mockium.run('index.js',
+            'const diff = 123_456 - document.createEvent("Event").timeStamp;\n' +
+            'console.log(diff);\n'
+        )
+        expect(mockium.getReport().has({ type: 'CallEvent', path: 'console.log', arguments: [ {literal: 123456 }] }))
+        mockium.dispose()
+    })
+
+    it('handles iterators', async () => {
+        const mockium = new Mockium()
+        await mockium.run('index.js',
+            'for (const test of getItems()) {\n' +
+            '    console.log(test.hey());\n' +
+            '}\n'
+        )
+        expect(mockium.getReport().has({ type: 'CallEvent', path: 'getItems()[3].hey', arguments: [] })).to.be.true
+        mockium.dispose()
+    })
 })
