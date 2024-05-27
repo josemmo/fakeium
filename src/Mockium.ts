@@ -1,6 +1,14 @@
 import { readFileSync } from 'fs'
-import { ExecutionError, MemoryLimitError, ModuleNotFoundError, ParsingError, TimeoutError } from './errors'
-import { HookableValue, Reference } from './hooks'
+import {
+    ExecutionError,
+    InvalidPathError,
+    InvalidValueError,
+    MemoryLimitError,
+    ModuleNotFoundError,
+    ParsingError,
+    TimeoutError,
+} from './errors'
+import { Hook, Reference } from './hooks'
 import { LoggerInterface } from './logger'
 import Report, { ReportEvent } from './Report'
 import ivm from 'isolated-vm'
@@ -29,9 +37,10 @@ type ModuleSourceCode = Buffer | string
  */
 type ModuleResolver = (url: URL) => Promise<ModuleSourceCode | null>
 
-/**
- * JavaScript bootstrap code to run inside the sandbox
- */
+/** Pattern to match valid property path accessors */
+const PATH_PATTERN = /^[a-z_$][a-z0-9_$]*(\.[a-z_$][a-z0-9_$]*|\[".+?"\]|\['.+?'\]|\[\d+\])*$/i
+
+/** JavaScript bootstrap code to run inside the sandbox */
 const BOOTSTRAP_CODE = readFileSync(new URL('sandbox/bootstrap.js', import.meta.url), 'utf-8')
 
 /**
@@ -44,7 +53,7 @@ const BOOTSTRAP_CODE = readFileSync(new URL('sandbox/bootstrap.js', import.meta.
 export default class Mockium {
     private readonly options: Required<MockiumInstanceOptions>
     private resolver: ModuleResolver = async () => null
-    private hooks: Record<string, HookableValue> = {}
+    private hooks = new Map<string, Hook>()
     private isolate: ivm.Isolate | null = null
     private readonly pathToModule = new Map<string, ivm.Module>()
     private readonly moduleToPath = new Map<ivm.Module, string>()
@@ -80,13 +89,43 @@ export default class Mockium {
     /**
      * Hook value inside sandbox
      *
-     * NOTE: will overwrite existing hook for the same path.
+     * Will overwrite any existing hook for the same path.
+     *
+     * Allowed values are:
+     * - Serializable values that can be copied to the sandbox using the
+     *   [structured clone algorithm](https://developer.mozilla.org/docs/Web/API/Web_Workers_API/Structured_clone_algorithm).
+     * - Functions that receive and/or return serializable values. Note that, while the aforementioned values will be
+     *   copied from/to the sandbox, functions are executed outside the sandbox.
+     * - Instances of {@link Reference} that point to a different value path inside the sandbox.
      *
      * @param path  Path of value to hook
      * @param value Value to return
+     * @throws {InvalidPathError} if the provided path is not valid
+     * @throws {InvalidValueError} if the provided value is not valid
      */
-    public hook(path: string, value: HookableValue): void {
-        this.hooks[path] = value
+    public hook(path: string, value: unknown): void {
+        this.validatePath(path)
+        if (value instanceof Reference) {
+            this.validatePath(value.path)
+            this.hooks.set(path, {
+                path,
+                newPath: value.path,
+            })
+        } else if (typeof value === 'function') {
+            this.hooks.set(path, {
+                path,
+                function: new ivm.Reference(value),
+            })
+        } else {
+            try {
+                this.hooks.set(path, {
+                    path,
+                    value: new ivm.ExternalCopy(value),
+                })
+            } catch (e) {
+                throw new InvalidValueError((e as TypeError).message)
+            }
+        }
     }
 
     /**
@@ -94,7 +133,7 @@ export default class Mockium {
      * @param path Path of value to unhook
      */
     public unhook(path: string): void {
-        delete this.hooks[path] // eslint-disable-line @typescript-eslint/no-dynamic-delete
+        this.hooks.delete(path)
     }
 
     /**
@@ -223,6 +262,17 @@ export default class Mockium {
     }
 
     /**
+     * Validate path
+     * @param path Path
+     * @throws {InvalidPathError} if path is not valid
+     */
+    private validatePath(path: string): void {
+        if (!PATH_PATTERN.test(path)) {
+            throw new InvalidPathError(`Path "${path}" is not valid`)
+        }
+    }
+
+    /**
      * Get un-instantiated module
      * @param  specifier  Specifier
      * @param  referrer   Referrer module
@@ -287,8 +337,7 @@ export default class Mockium {
                     this.nextValueId = nextValueId
                 },
                 (...args: string[])  => this.options.logger?.debug('<SANDBOX>', ...args),
-                Object.keys(this.hooks),
-                this.hooks,
+                Array.from(this.hooks.values()),
             ],
             {
                 arguments: {

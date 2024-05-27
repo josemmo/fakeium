@@ -3,6 +3,20 @@ export abstract class MockiumError extends Error {
 }
 
 /**
+ * Error thrown when a path is malformed or not valid.
+ */
+export class InvalidPathError extends MockiumError {
+    // Intentionally left blank
+}
+
+/**
+ * Error thrown when a value cannot be serialized inside the sandbox.
+ */
+export class InvalidValueError extends MockiumError {
+    // Intentionally left blank
+}
+
+/**
  * Error thrown when a module cannot be resolved.
  */
 export class ModuleNotFoundError extends MockiumError {

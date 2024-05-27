@@ -4,7 +4,7 @@
 const TRACE_PATTERN = /  at.* \(?(.+):([0-9]+):([0-9]+)\)?$/
 
 /** Pattern that identifies object properties that do not need to be escaped */
-const SIMPLE_PROPERTY_PATTERN = /^[a-z_#$][a-z0-9_#$]*$/i
+const SIMPLE_PROPERTY_PATTERN = /^[a-z_$][a-z0-9_$]*$/i
 
 /** Symbol to mark objects that are mocks, used to prevent mocking the same object twice */
 const MockSymbol = Symbol(`Mock-${Math.random()}`)
@@ -60,31 +60,14 @@ function emitDebug(...args) {
 
 //#region Hooks
 
-class Reference {
-    /** @param {string} path */
-    constructor(path) {
-        this.path = path
-    }
-}
+/** @type {import('isolated-vm').Reference<import('../hooks').Hook[]>} */
+const RAW_HOOKS = $3 // eslint-disable-line no-undef
 
-/** @type {string[]} */
-const HOOK_PATHS = $3.copySync() // eslint-disable-line no-undef
-
-/** @type {import('isolated-vm').Reference} */
-const RAW_HOOKS = $4 // eslint-disable-line no-undef
-
-/** @type {Map<string, string | number | boolean | null | undefined | import('isolated-vm').Reference | Reference>} */
+/** @type {Map<string,import('../hooks').Hook>} */
 const HOOKS = new Map()
 
-for (const path of HOOK_PATHS) {
-    let value = RAW_HOOKS.getSync(path, { reference: true })
-    if (value.typeof !== 'function') {
-        value = value.copySync()
-        if (typeof value === 'object' && value.__tag === 'MockiumReference') {
-            value = new Reference(value.path)
-        }
-    }
-    HOOKS.set(path, value)
+for (const item of RAW_HOOKS.copySync()) {
+    HOOKS.set(item.path, item)
 }
 
 
@@ -305,12 +288,14 @@ function createMock(path, template, thisArg) {
             const subpath = resolvePath(path, property)
             if (HOOKS.has(subpath)) {
                 const hook = HOOKS.get(subpath)
-                if (hook instanceof Reference) {
-                    emitDebug(`Redirecting "${subpath}" to "${hook.path}"`)
-                    target[property] = eval(hook.path)
-                } else if (isLiteral(hook)) {
-                    target[property] = hook
-                    emitDebug(`Using custom hooked value for "${subpath}"`)
+                if ('newPath' in hook) {
+                    emitDebug(`Hook: Redirecting "${subpath}" to "${hook.newPath}"`)
+                    target[property] = eval(hook.newPath)
+                } else if ('value' in hook) {
+                    emitDebug(`Hook: Using custom value for "${subpath}"`)
+                    target[property] = hook.value.copy()
+                } else {
+                    emitDebug(`Hook: Getting external function at "${subpath}"`)
                 }
             }
 
@@ -354,8 +339,8 @@ function createMock(path, template, thisArg) {
         apply(target, realThisArg, argArray) {
             // Handle hooks
             const hook = HOOKS.get(path)
-            if (typeof hook === 'object' && 'applySyncPromise' in hook) {
-                const returns = hook.applySyncPromise(undefined, argArray, {
+            if (hook && 'function' in hook) {
+                const returns = hook.function.applySyncPromise(undefined, argArray, {
                     arguments: { copy: true },
                 })
                 onCallEvent(path, argArray, returns, false)

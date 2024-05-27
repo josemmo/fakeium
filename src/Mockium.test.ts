@@ -1,5 +1,5 @@
 import { assert, expect } from 'chai'
-import { ExecutionError, MemoryLimitError, ModuleNotFoundError, ParsingError, TimeoutError } from './errors'
+import { ExecutionError, InvalidPathError, InvalidValueError, MemoryLimitError, ModuleNotFoundError, ParsingError, TimeoutError } from './errors'
 import Mockium from './Mockium'
 import { Reference } from './hooks'
 
@@ -547,6 +547,21 @@ describe('Mockium sandbox', () => {
 })
 
 describe('Mockium hooks', () => {
+    it('throws an error for invalid paths', async () => {
+        const mockium = new Mockium()
+        expect(() => mockium.hook('This is clearly not a valid path', '')).to.throw(InvalidPathError)
+        expect(() => mockium.hook('a.b.0.c', '')).to.throw(InvalidPathError)
+        expect(() => mockium.hook('hey[0.unclosed_bracket', '')).to.throw(InvalidPathError)
+        expect(() => mockium.hook('valid.path', new Reference('invalid path'))).to.throw(InvalidPathError)
+        mockium.dispose()
+    })
+
+    it('throws an error for non-transferable values', () => {
+        const mockium = new Mockium()
+        expect(() => mockium.hook('something', Symbol('test'))).to.throw(InvalidValueError)
+        mockium.dispose()
+    })
+
     it('aliases window and other objects to globalThis by default', async () => {
         const mockium = new Mockium()
         await mockium.run('index.js',
