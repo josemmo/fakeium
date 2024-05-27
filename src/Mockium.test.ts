@@ -516,11 +516,11 @@ describe('Mockium sandbox', () => {
             '    // This line is unreachable, but the program must not crash\n' +
             '});\n' +
             '$("#button").click(() => {\n' +
-            '    chrome.also.gotCalled();\n' +
+            '    also.gotCalled();\n' +
             '});\n'
         )
         expect(mockium.getReport().has({ type: 'CallEvent', path: 'navigator.gotCalled' })).to.be.true
-        expect(mockium.getReport().has({ type: 'CallEvent', path: 'chrome.also.gotCalled' })).to.be.true
+        expect(mockium.getReport().has({ type: 'CallEvent', path: 'also.gotCalled' })).to.be.true
         mockium.dispose()
     })
 
@@ -574,6 +574,33 @@ describe('Mockium hooks', () => {
         mockium.dispose()
     })
 
+    it('fakes browser extensions environment by default', async () => {
+        const mockium = new Mockium()
+
+        // Ensure predefined mocks are correct
+        await mockium.run('index.js',
+            '// "globalThis.chrome" must be an object, not a function\n' +
+            'if (typeof chrome !== "object" || !chrome || !chrome.runtime || !chrome.runtime.id || chrome !== browser) {\n' +
+            '    throw new Error("Sandbox did not pass environment verification");\n' +
+            '}\n'
+        )
+        mockium.dispose()
+
+        // Validate auto-wiring of "chrome" to "browser" object
+        await mockium.run('index.js',
+            '(async () => {\n' +
+            '    const [ tab ] = await chrome.tabs.query({ active: true });\n' +
+            '    const response = await browser.tabs.sendMessage(tab.id, { greeting: "hello" });\n' +
+            '})();\n'
+        )
+        expect(mockium.getReport().has({ type: 'CallEvent', path: 'browser.tabs.query' })).to.be.true
+        expect(mockium.getReport().has({ type: 'CallEvent', path: 'browser.tabs.sendMessage' })).to.be.true
+        expect(mockium.getReport().has({ path: 'chrome.tabs.query' })).to.be.false
+        expect(mockium.getReport().has({ path: 'chrome.tabs.sendMessage' })).to.be.false
+        expect(mockium.getReport().has({ path: 'chrome' })).to.be.false
+        mockium.dispose()
+    })
+
     it('supports hooking certain objects inside the sandbox', async () => {
         let somethingGotCalled = false
         const mockium = new Mockium()
@@ -583,22 +610,20 @@ describe('Mockium hooks', () => {
             somethingGotCalled = true
             return 123
         })
-        mockium.hook('chrome.something', new Reference('browser.a.reference[0].to.somewhere'))
+        mockium.hook('test.something', new Reference('another.reference[0].to.somewhere'))
         await mockium.run('index.js',
             'console.log(sample.value);\n' +
             'something();\n' +
             'window.something();\n' +
             'const res = hookMe();\n' +
             'anotherThing(res);\n' +
-            'chrome.something();\n'
+            'test.something.else();\n'
         )
         expect(mockium.getReport().has({ path: 'sample.value', value: { literal: 'hello!' } })).to.be.true
         expect(mockium.getReport().has({ path: 'hookMe', returns: { literal: 33 } })).to.be.true
         expect(mockium.getReport().has({ path: 'something', returns: { literal: 123 } })).to.be.true
         expect(somethingGotCalled).to.be.true
-        expect(mockium.getReport().has({ type: 'CallEvent', path: 'browser.a.reference[0].to.somewhere' })).to.be.true
-        expect(mockium.getReport().has({ type: 'GetEvent', path: 'chrome.something' })).to.be.true
-        expect(mockium.getReport().has({ type: 'CallEvent', path: 'chrome.something' })).to.be.false
+        expect(mockium.getReport().has({ type: 'CallEvent', path: 'another.reference[0].to.somewhere.else' })).to.be.true
         mockium.dispose()
     })
 })

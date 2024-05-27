@@ -76,6 +76,10 @@ export default class Mockium {
         for (const path of ['frames', 'global', 'parent', 'self', 'window']) {
             this.hook(path, new Reference('globalThis'))
         }
+
+        // Setup environment for browser extensions
+        this.hook('browser', {})
+        this.hook('chrome', new Reference('browser'))
     }
 
     /**

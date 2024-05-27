@@ -19,7 +19,7 @@ const IdSymbol = Symbol(`Id-${Math.random()}`)
 const VisitedSymbol = Symbol(`Visited-${Math.random()}`)
 
 /** Reference to original properties from globalThis object */
-const { Error, JSON, Proxy, Promise, Reflect, eval, isNaN, parseInt } = globalThis // eslint-disable-line no-shadow-restricted-names
+const { Error, JSON, Proxy, Promise, Reflect, Set, eval, isNaN, parseInt } = globalThis // eslint-disable-line no-shadow-restricted-names
 
 
 //#region Proxies
@@ -256,6 +256,8 @@ function createMock(path, template, thisArg) {
     }
 
     // Wrap template in proxy
+    /** @type {Set<string>} */
+    const silentPaths = new Set()
     const proxy = new Proxy(template, {
         has(target, property) {
             return (target[FullMockSymbol] === FullMockSymbol) ? true : (property in target)
@@ -284,23 +286,23 @@ function createMock(path, template, thisArg) {
                 return target[property]
             }
 
-            // Handle hooks
+            // Create or get child mock
             const subpath = resolvePath(path, property)
-            if (HOOKS.has(subpath)) {
+            const exists = (property in target)
+            if (!exists && HOOKS.has(subpath)) {
                 const hook = HOOKS.get(subpath)
                 if ('newPath' in hook) {
-                    emitDebug(`Hook: Redirecting "${subpath}" to "${hook.newPath}"`)
+                    emitDebug(`Created hook redirecting "${subpath}" to "${hook.newPath}"`)
                     target[property] = eval(hook.newPath)
+                    silentPaths.add(subpath)
                 } else if ('value' in hook) {
-                    emitDebug(`Hook: Using custom value for "${subpath}"`)
-                    target[property] = hook.value.copy()
+                    emitDebug(`Created hook with custom value for "${subpath}"`)
+                    target[property] = createMock(subpath, hook.value.copy())
                 } else {
-                    emitDebug(`Hook: Getting external function at "${subpath}"`)
+                    emitDebug(`Created hook binding external function at "${subpath}"`)
+                    target[property] = createMock(subpath)
                 }
-            }
-
-            // Create or get child mock
-            if (!(property in target)) {
+            } else if (!exists) {
                 emitDebug(`Mocked "${subpath}" object`)
                 target[property] = createMock(subpath)
             } else if (!isMock(target[property]) && !isLiteral(target[property])) {
@@ -309,7 +311,9 @@ function createMock(path, template, thisArg) {
             }
 
             // Return value
-            onGetOrSetEvent('GetEvent', subpath, target[property])
+            if (!silentPaths.has(subpath)) {
+                onGetOrSetEvent('GetEvent', subpath, target[property])
+            }
             return target[property]
         },
         set(target, property, newValue, receiver) {
