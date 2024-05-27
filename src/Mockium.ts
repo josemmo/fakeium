@@ -1,5 +1,6 @@
 import { readFileSync } from 'fs'
 import { ExecutionError, MemoryLimitError, ModuleNotFoundError, ParsingError, TimeoutError } from './errors'
+import { HookableValue, Reference } from './hooks'
 import { LoggerInterface } from './logger'
 import Report, { ReportEvent } from './Report'
 import ivm from 'isolated-vm'
@@ -43,6 +44,7 @@ const BOOTSTRAP_CODE = readFileSync(new URL('sandbox/bootstrap.js', import.meta.
 export default class Mockium {
     private readonly options: Required<MockiumInstanceOptions>
     private resolver: ModuleResolver = async () => null
+    private hooks: Record<string, HookableValue> = {}
     private isolate: ivm.Isolate | null = null
     private readonly pathToModule = new Map<string, ivm.Module>()
     private readonly moduleToPath = new Map<ivm.Module, string>()
@@ -60,6 +62,11 @@ export default class Mockium {
             logger: null,
             ...options,
         }
+
+        // Auto-wire aliases of the "globalThis" object
+        for (const path of ['frames', 'global', 'parent', 'self', 'window']) {
+            this.hook(path, new Reference('globalThis'))
+        }
     }
 
     /**
@@ -68,6 +75,26 @@ export default class Mockium {
      */
     public setResolver(resolver: ModuleResolver): void {
         this.resolver = resolver
+    }
+
+    /**
+     * Hook value inside sandbox
+     *
+     * NOTE: will overwrite existing hook for the same path.
+     *
+     * @param path  Path of value to hook
+     * @param value Value to return
+     */
+    public hook(path: string, value: HookableValue): void {
+        this.hooks[path] = value
+    }
+
+    /**
+     * Unhook value inside sandbox
+     * @param path Path of value to unhook
+     */
+    public unhook(path: string): void {
+        delete this.hooks[path] // eslint-disable-line @typescript-eslint/no-dynamic-delete
     }
 
     /**
@@ -260,6 +287,8 @@ export default class Mockium {
                     this.nextValueId = nextValueId
                 },
                 (...args: string[])  => this.options.logger?.debug('<SANDBOX>', ...args),
+                Object.keys(this.hooks),
+                this.hooks,
             ],
             {
                 arguments: {

@@ -19,7 +19,7 @@ const IdSymbol = Symbol(`Id-${Math.random()}`)
 const VisitedSymbol = Symbol(`Visited-${Math.random()}`)
 
 /** Reference to original properties from globalThis object */
-const { Error, JSON, Proxy, Promise, Reflect, isNaN, parseInt } = globalThis
+const { Error, JSON, Proxy, Promise, Reflect, eval, isNaN, parseInt } = globalThis // eslint-disable-line no-shadow-restricted-names
 
 
 //#region Proxies
@@ -55,6 +55,36 @@ function emitEvent(event) {
  */
 function emitDebug(...args) {
     DEBUG_PROXY.applyIgnored(undefined, args.map(item => `${item}`), { arguments: { copy: true } })
+}
+
+
+//#region Hooks
+
+class Reference {
+    /** @param {string} path */
+    constructor(path) {
+        this.path = path
+    }
+}
+
+/** @type {string[]} */
+const HOOK_PATHS = $3.copySync() // eslint-disable-line no-undef
+
+/** @type {import('isolated-vm').Reference} */
+const RAW_HOOKS = $4 // eslint-disable-line no-undef
+
+/** @type {Map<string, string | number | boolean | null | undefined | import('isolated-vm').Reference | Reference>} */
+const HOOKS = new Map()
+
+for (const path of HOOK_PATHS) {
+    let value = RAW_HOOKS.getSync(path, { reference: true })
+    if (value.typeof !== 'function') {
+        value = value.copySync()
+        if (typeof value === 'object' && value.__tag === 'MockiumReference') {
+            value = new Reference(value.path)
+        }
+    }
+    HOOKS.set(path, value)
 }
 
 
@@ -230,7 +260,7 @@ function createMock(path, template, thisArg) {
     if (template === undefined) {
         template = function() {
             const subpath = resolvePath(path, '()')
-            emitDebug(`Mocked "${subpath}" object`)
+            emitDebug(`Mocked return value for ${subpath}`)
             return createMock(subpath)
         }
         template.toString = () => 'function () { [native code] }'
@@ -271,12 +301,24 @@ function createMock(path, template, thisArg) {
                 return target[property]
             }
 
-            // Create or get child mock
+            // Handle hooks
             const subpath = resolvePath(path, property)
+            if (HOOKS.has(subpath)) {
+                const hook = HOOKS.get(subpath)
+                if (hook instanceof Reference) {
+                    emitDebug(`Redirecting "${subpath}" to "${hook.path}"`)
+                    target[property] = eval(hook.path)
+                } else if (isLiteral(hook)) {
+                    target[property] = hook
+                    emitDebug(`Using custom hooked value for "${subpath}"`)
+                }
+            }
+
+            // Create or get child mock
             if (!(property in target)) {
                 emitDebug(`Mocked "${subpath}" object`)
                 target[property] = createMock(subpath)
-            } else if (!isMock(target[property])) {
+            } else if (!isMock(target[property]) && !isLiteral(target[property])) {
                 emitDebug(`Patched existing "${subpath}" object`)
                 target[property] = createMock(subpath, target[property], target)
             }
@@ -310,6 +352,17 @@ function createMock(path, template, thisArg) {
             return newMock
         },
         apply(target, realThisArg, argArray) {
+            // Handle hooks
+            const hook = HOOKS.get(path)
+            if (typeof hook === 'object' && 'applySyncPromise' in hook) {
+                const returns = hook.applySyncPromise(undefined, argArray, {
+                    arguments: { copy: true },
+                })
+                onCallEvent(path, argArray, returns, false)
+                return returns
+            }
+
+            // Call function
             const returns = target.apply(thisArg ?? realThisArg, argArray)
             onCallEvent(path, argArray, returns, false)
             return returns

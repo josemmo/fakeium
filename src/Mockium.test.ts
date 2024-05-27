@@ -1,6 +1,7 @@
 import { assert, expect } from 'chai'
 import { ExecutionError, MemoryLimitError, ModuleNotFoundError, ParsingError, TimeoutError } from './errors'
 import Mockium from './Mockium'
+import { Reference } from './hooks'
 
 describe('Mockium', () => {
     it('initializes and disposes', async () => {
@@ -541,6 +542,48 @@ describe('Mockium sandbox', () => {
             '}\n'
         )
         expect(mockium.getReport().has({ type: 'CallEvent', path: 'getItems()[3].hey', arguments: [] })).to.be.true
+        mockium.dispose()
+    })
+})
+
+describe('Mockium hooks', () => {
+    it('aliases window and other objects to globalThis by default', async () => {
+        const mockium = new Mockium()
+        await mockium.run('index.js',
+            'for (const item of [frames, global, parent, self, window]) {\n' +
+            '    if (typeof item !== "object" || item !== globalThis) {\n' +
+            '        throw new Error("Sandbox did not pass environment verification");\n' +
+            '    }\n' +
+            '}\n'
+        )
+        mockium.dispose()
+    })
+
+    it('supports hooking certain objects inside the sandbox', async () => {
+        let somethingGotCalled = false
+        const mockium = new Mockium()
+        mockium.hook('sample.value', 'hello!')
+        mockium.hook('hookMe', () => 33)
+        mockium.hook('something', async () => {
+            somethingGotCalled = true
+            return 123
+        })
+        mockium.hook('chrome.something', new Reference('browser.a.reference[0].to.somewhere'))
+        await mockium.run('index.js',
+            'console.log(sample.value);\n' +
+            'something();\n' +
+            'window.something();\n' +
+            'const res = hookMe();\n' +
+            'anotherThing(res);\n' +
+            'chrome.something();\n'
+        )
+        expect(mockium.getReport().has({ path: 'sample.value', value: { literal: 'hello!' } })).to.be.true
+        expect(mockium.getReport().has({ path: 'hookMe', returns: { literal: 33 } })).to.be.true
+        expect(mockium.getReport().has({ path: 'something', returns: { literal: 123 } })).to.be.true
+        expect(somethingGotCalled).to.be.true
+        expect(mockium.getReport().has({ type: 'CallEvent', path: 'browser.a.reference[0].to.somewhere' })).to.be.true
+        expect(mockium.getReport().has({ type: 'GetEvent', path: 'chrome.something' })).to.be.true
+        expect(mockium.getReport().has({ type: 'CallEvent', path: 'chrome.something' })).to.be.false
         mockium.dispose()
     })
 })

@@ -7,6 +7,8 @@ export default tseslint.config(
     ...tseslint.configs.stylistic,
     {
         rules: {
+            '@typescript-eslint/no-extraneous-class': 'off',
+            '@typescript-eslint/no-invalid-void-type': 'off',
             'no-regex-spaces': 'off',
         },
     },
