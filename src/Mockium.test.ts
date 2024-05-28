@@ -626,4 +626,58 @@ describe('Mockium hooks', () => {
         expect(mockium.getReport().has({ type: 'CallEvent', path: 'another.reference[0].to.somewhere.else' })).to.be.true
         mockium.dispose()
     })
+
+    it('handles writable and non-writable hooks', async () => {
+        const mockium = new Mockium()
+        mockium.hook('writable', 'a', true)
+        mockium.hook('readOnly', 'a', false)
+        mockium.hook('writableFn', () => 'Y', true)
+        mockium.hook('readOnlyFn', () => 'Y', false)
+        await mockium.run('index.js',
+            'writable += "b";\n' +
+            'console.log(`writable is "${writable}"`);\n' +
+            'readOnly += "b";\n' +
+            'console.log(`readOnly is "${readOnly}"`);\n' +
+            'writableFn();\n' +
+            'writableFn = () => "Z";\n' +
+            'writableFn();\n' +
+            'readOnlyFn();\n' +
+            'readOnlyFn = () => "Z";\n' +
+            'readOnlyFn();\n'
+        )
+
+        // Set events should be logged regardless of writable state
+        expect(mockium.getReport().has({ path: 'writable', value: { literal: 'a' } })).to.be.true
+        expect(mockium.getReport().has({ path: 'writable', value: { literal: 'ab' } })).to.be.true
+        expect(mockium.getReport().has({ path: 'readOnly', value: { literal: 'a' } })).to.be.true
+        expect(mockium.getReport().has({ path: 'readOnly', value: { literal: 'ab' } })).to.be.true
+        expect(mockium.getReport().has({ type: 'SetEvent', path: 'writableFn' })).to.be.true
+        expect(mockium.getReport().has({ type: 'SetEvent', path: 'readOnlyFn' })).to.be.true
+
+        // But changes should not persisted to read-only paths
+        expect(mockium.getReport().has({ arguments: [ { literal: 'writable is "ab"' } ] })).to.be.true
+        expect(mockium.getReport().has({ arguments: [ { literal: 'readOnly is "a"' } ] })).to.be.true
+        expect(mockium.getReport().has({
+            path: 'writableFn',
+            returns: { literal: 'Y' },
+            location: { line: 5 },
+        })).to.be.true
+        expect(mockium.getReport().has({
+            path: 'writableFn',
+            returns: { literal: 'Z' },
+            location: { line: 7 },
+        })).to.be.true
+        expect(mockium.getReport().has({
+            path: 'readOnlyFn',
+            returns: { literal: 'Y' },
+            location: { line: 8 },
+        })).to.be.true
+        expect(mockium.getReport().has({
+            path: 'readOnlyFn',
+            returns: { literal: 'Y' },
+            location: { line: 10 },
+        })).to.be.true
+
+        mockium.dispose()
+    })
 })

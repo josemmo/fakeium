@@ -102,28 +102,32 @@ export default class Mockium {
      *   copied from/to the sandbox, functions are executed outside the sandbox.
      * - Instances of {@link Reference} that point to a different value path inside the sandbox.
      *
-     * @param path  Path of value to hook
-     * @param value Value to return
+     * @param path       Path of value to hook
+     * @param value      Value to return
+     * @param isWritable Whether hook can have its value overwritten inside the sandbox, `true` by default
      * @throws {InvalidPathError} if the provided path is not valid
      * @throws {InvalidValueError} if the provided value is not valid
      */
-    public hook(path: string, value: unknown): void {
+    public hook(path: string, value: unknown, isWritable = true): void {
         this.validatePath(path)
         if (value instanceof Reference) {
             this.validatePath(value.path)
             this.hooks.set(path, {
                 path,
+                isWritable,
                 newPath: value.path,
             })
         } else if (typeof value === 'function') {
             this.hooks.set(path, {
                 path,
+                isWritable,
                 function: new ivm.Reference(value),
             })
         } else {
             try {
                 this.hooks.set(path, {
                     path,
+                    isWritable,
                     value: new ivm.ExternalCopy(value),
                 })
             } catch (e) {

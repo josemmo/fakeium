@@ -18,6 +18,9 @@ const IdSymbol = Symbol(`Id-${Math.random()}`)
 /** Symbol used to taint previously visited callbacks */
 const VisitedSymbol = Symbol(`Visited-${Math.random()}`)
 
+/** Symbol used as a property key to store the function key name (hook name) to be called instead */
+const ExternalFunctionSymbol = Symbol(`ExternalFunction-${Math.random()}`)
+
 /** Reference to original properties from globalThis object */
 const { Error, JSON, Proxy, Promise, Reflect, Set, eval, isNaN, parseInt } = globalThis // eslint-disable-line no-shadow-restricted-names
 
@@ -258,6 +261,8 @@ function createMock(path, template, thisArg) {
     // Wrap template in proxy
     /** @type {Set<string>} */
     const silentPaths = new Set()
+    /** @type {Set<string>} */
+    const readOnlyPaths = new Set()
     const proxy = new Proxy(template, {
         has(target, property) {
             return (target[FullMockSymbol] === FullMockSymbol) ? true : (property in target)
@@ -301,6 +306,10 @@ function createMock(path, template, thisArg) {
                 } else {
                     emitDebug(`Created hook binding external function at "${subpath}"`)
                     target[property] = createMock(subpath)
+                    target[property][ExternalFunctionSymbol] = subpath
+                }
+                if (!hook.isWritable) {
+                    readOnlyPaths.add(subpath)
                 }
             } else if (!exists) {
                 emitDebug(`Mocked "${subpath}" object`)
@@ -317,9 +326,17 @@ function createMock(path, template, thisArg) {
             return target[property]
         },
         set(target, property, newValue, receiver) {
-            if (typeof property !== 'symbol') {
+            if (typeof property === 'string') {
                 const subpath = resolvePath(path, property)
                 onGetOrSetEvent('SetEvent', subpath, newValue)
+                if (readOnlyPaths.has(subpath)) {
+                    emitDebug(`Ignored set value attempt for "${subpath}" (read-only)`)
+                    return true
+                }
+                if (!isMock(newValue)) {
+                    emitDebug(`Patched existing "${subpath}" object before setting value`)
+                    newValue = createMock(subpath, newValue, target)
+                }
             }
             return Reflect.set(target, property, newValue, receiver)
         },
@@ -341,14 +358,18 @@ function createMock(path, template, thisArg) {
             return newMock
         },
         apply(target, realThisArg, argArray) {
-            // Handle hooks
-            const hook = HOOKS.get(path)
-            if (hook && 'function' in hook) {
-                const returns = hook.function.applySyncPromise(undefined, argArray, {
-                    arguments: { copy: true },
-                })
-                onCallEvent(path, argArray, returns, false)
-                return returns
+            // Handle hooks of external functions
+            if (typeof target[ExternalFunctionSymbol] === 'string') {
+                const hookPath = target[ExternalFunctionSymbol]
+                const hook = HOOKS.get(hookPath)
+                if (hook && 'function' in hook) {
+                    const returns = hook.function.applySyncPromise(undefined, argArray, {
+                        arguments: { copy: true },
+                    })
+                    onCallEvent(path, argArray, returns, false)
+                    return returns
+                }
+                emitDebug(`Trying to invoke non-existing external function: "${hookPath}"`)
             }
 
             // Call function

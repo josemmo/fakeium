@@ -18,6 +18,7 @@ export class Reference {
 
 export type Hook = {
     path: string
+    isWritable: boolean
 } & (
     { newPath: string } |
     { value: ExternalCopy } |
