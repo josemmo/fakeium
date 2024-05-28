@@ -2,16 +2,19 @@ import { assert, expect } from 'chai'
 import { ExecutionError, InvalidPathError, InvalidValueError, MemoryLimitError, ModuleNotFoundError, ParsingError, TimeoutError } from './errors'
 import Mockium from './Mockium'
 import { Reference } from './hooks'
+import { DefaultLogger } from './logger'
+
+const logger = (process.env.LOG_LEVEL === 'debug') ? new DefaultLogger() : null
 
 describe('Mockium', () => {
     it('initializes and disposes', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         expect(mockium.getReport().size()).to.be.equal(0)
         mockium.dispose()
     })
 
     it('runs scripts without resolver', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         await mockium.run('example.js', '1+1') // Create new module with custom source code
         await mockium.run('example.js')        // Run the same module (cached)
         await mockium.run('example.js', '2+2') // Override cached module with new source code
@@ -19,7 +22,7 @@ describe('Mockium', () => {
     })
 
     it('runs scripts with resolver', async () => {
-        const mockium = new Mockium({ origin: 'https://localhost' })
+        const mockium = new Mockium({ logger, origin: 'https://localhost' })
         mockium.setResolver(async url => {
             if (url.href === 'https://localhost/index.js') {
                 return '// This is the index\n'
@@ -31,7 +34,7 @@ describe('Mockium', () => {
     })
 
     it('throws an error for unresolved modules', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         try {
             await mockium.run('example.js')
         } catch (e) {
@@ -44,7 +47,7 @@ describe('Mockium', () => {
     })
 
     it('throws an error for invalid source code', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         try {
             await mockium.run('example.js', 'This is not JavaScript code')
         } catch (e) {
@@ -57,7 +60,7 @@ describe('Mockium', () => {
     })
 
     it('resolves module specifiers', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         mockium.setResolver(async url => {
             if (url.pathname === '/index.js') {
                 return 'import "./subdir/b.js";\n' +
@@ -105,7 +108,7 @@ describe('Mockium', () => {
     })
 
     it('propagates unhandled sandbox errors', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         try {
             await mockium.run('crash.js', 'throw new Error("oh no!");')
         } catch (e) {
@@ -118,7 +121,7 @@ describe('Mockium', () => {
     })
 
     it('throws an error on timeout', async () => {
-        const mockium = new Mockium({ timeout: 500 })
+        const mockium = new Mockium({ logger, timeout: 500 })
         try {
             await mockium.run('endless.js', 'while (true) {;;}')
         } catch (e) {
@@ -131,7 +134,7 @@ describe('Mockium', () => {
     }).timeout(1000)
 
     it('throw an error on memory exhaustion', async () => {
-        const mockium = new Mockium({ maxMemory: 8 })
+        const mockium = new Mockium({ logger, maxMemory: 8 })
         const code = 'const garbage = [];\n' +
                      'while (true) {\n' +
                      '    garbage.push("abcdefghijklmnopqrstuvwxyz".repeat(1024));\n' +
@@ -150,7 +153,7 @@ describe('Mockium', () => {
 
 describe('Mockium sandbox', () => {
     it('assigns incremental value IDs', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         mockium.setResolver(async () => {
             return '(async () => {\n' +
                    '    const a = JSON.stringify({ tag: "a" });\n' +
@@ -234,7 +237,7 @@ describe('Mockium sandbox', () => {
     })
 
     it('assigns incremental value IDs after clearing and dispose', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
 
         await mockium.run('first.js', 'first()')
         expect(mockium.getReport().has({ type: 'CallEvent', path: 'first', returns: { ref: 2 } })).to.be.true
@@ -252,7 +255,7 @@ describe('Mockium sandbox', () => {
     })
 
     it('resolves paths in both dot and bracket notation', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         await mockium.run('index.js',
             'a.b.c[123];\n' +
             'a.b.c.d[\'with space\'].e;\n' +
@@ -265,7 +268,7 @@ describe('Mockium sandbox', () => {
     })
 
     it('logs simple function calls', async() => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         await mockium.run('index.js', 'console.log(something, 123)')
         expect(mockium.getReport().has({
             type: 'CallEvent',
@@ -277,7 +280,7 @@ describe('Mockium sandbox', () => {
     })
 
     it('logs thenable function calls', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         await mockium.run('index.js',
             '(async () => {\n' +
             '    const res = await aPromise();\n' +
@@ -306,7 +309,7 @@ describe('Mockium sandbox', () => {
     })
 
     it('runs code with module imports', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         mockium.setResolver(async url => {
             if (url.href === 'file:///index.js') {
                 return 'import { callMe } from "./test.js";\n' +
@@ -379,7 +382,7 @@ describe('Mockium sandbox', () => {
     })
 
     it('runs eval code', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         await mockium.run('index.js', 'alert(eval("1+1"))')
         expect(mockium.getReport().has({
             type: 'CallEvent',
@@ -391,7 +394,7 @@ describe('Mockium sandbox', () => {
     })
 
     it('handles constructors', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         await mockium.run('index.js',
             '(async () => {\n' +
             '    const dateAsJson = new Date("2021-01-02").toJSON();\n' +
@@ -468,7 +471,7 @@ describe('Mockium sandbox', () => {
     })
 
     it('handles calling of functions in several ways', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         await mockium.run('index.js',
             'function test() {\n' +
             '    done();\n' +
@@ -508,7 +511,7 @@ describe('Mockium sandbox', () => {
     })
 
     it('handles callbacks and event listeners', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         await mockium.run('index.js',
             'window.addEventListener("load", function() {\n' +
             '    navigator.gotCalled();\n' +
@@ -525,7 +528,7 @@ describe('Mockium sandbox', () => {
     })
 
     it('creates mocks that can be converted to primitive values', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         await mockium.run('index.js',
             'const diff = 123_456 - document.createEvent("Event").timeStamp;\n' +
             'console.log(diff);\n'
@@ -535,7 +538,7 @@ describe('Mockium sandbox', () => {
     })
 
     it('handles iterators', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         await mockium.run('index.js',
             'for (const test of getItems()) {\n' +
             '    console.log(test.hey());\n' +
@@ -548,7 +551,7 @@ describe('Mockium sandbox', () => {
 
 describe('Mockium hooks', () => {
     it('throws an error for invalid paths', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         expect(() => mockium.hook('This is clearly not a valid path', '')).to.throw(InvalidPathError)
         expect(() => mockium.hook('a.b.0.c', '')).to.throw(InvalidPathError)
         expect(() => mockium.hook('hey[0.unclosed_bracket', '')).to.throw(InvalidPathError)
@@ -557,13 +560,13 @@ describe('Mockium hooks', () => {
     })
 
     it('throws an error for non-transferable values', () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         expect(() => mockium.hook('something', Symbol('test'))).to.throw(InvalidValueError)
         mockium.dispose()
     })
 
     it('aliases window and other objects to globalThis by default', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         await mockium.run('index.js',
             'for (const item of [frames, global, parent, self, window]) {\n' +
             '    if (typeof item !== "object" || item !== globalThis) {\n' +
@@ -575,7 +578,7 @@ describe('Mockium hooks', () => {
     })
 
     it('fakes browser extensions environment by default', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
 
         // Ensure predefined mocks are correct
         await mockium.run('index.js',
@@ -603,7 +606,7 @@ describe('Mockium hooks', () => {
 
     it('supports hooking certain objects inside the sandbox', async () => {
         let somethingGotCalled = false
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         mockium.hook('sample.value', 'hello!')
         mockium.hook('hookMe', () => 33)
         mockium.hook('something', async () => {
@@ -628,7 +631,7 @@ describe('Mockium hooks', () => {
     })
 
     it('handles writable and non-writable hooks', async () => {
-        const mockium = new Mockium()
+        const mockium = new Mockium({ logger })
         mockium.hook('writable', 'a', true)
         mockium.hook('readOnly', 'a', false)
         mockium.hook('writableFn', () => 'Y', true)
