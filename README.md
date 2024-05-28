@@ -1,4 +1,9 @@
-# Mockium
+<p align="center"><a href="https://github.com/josemmo/mockium"><img src="logo.png" alt="Mockium" width="400"></a></p>
+<p align="center">
+    <a href="https://github.com/josemmo/mockium/actions"><img src="https://github.com/josemmo/mockium/actions/workflows/tests.yml/badge.svg"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/josemmo/mockium.svg"></a>
+</p>
+
 Mockium (a play on the words *Mock* and *Chromium*) is a lightweight, V8-based sandbox for the dynamic execution of
 untrusted JavaScript code.
 It aims to improve traditional static analysis by detecting API calls coming from `eval`, `new Function` and heavily
@@ -21,6 +26,24 @@ It has built-in support for:
 - 🧾 Logging
 - 🕵 Event tracing (code that triggered it)
 - 🔎 Report events querying
+
+## FAQ
+**Who is Mockium intended for?**\
+Mockium is aimed at security researchers who want to determine the behavior of a JavaScript application, browser
+extension, website, etc.
+For example, it can be used to detect calls to privacy sensitive APIs or fingerprinting attempts.
+
+**Why use Mockium instead of Chromium with Playwright/Puppeteer/Selenium?**\
+When running experiments at scale, it is not always possible to use traditional dynamic analysis due to time and
+resource constraints.
+In addition, finding good inputs that trigger a sample's malicious code path typically requires manual effort and is not
+always possible.
+Mockium is a good alternative when you hit any of these limitations.
+
+**Why use Mockium instead of static analysis?**\
+Mockium does not try to replace traditional static analysis with tools like Babel or Esprima.
+Instead, it complements it by increasing analysis coverage through the detection of API calls that would otherwise go
+undetected.
 
 ## Getting Started
 
