@@ -547,6 +547,32 @@ describe('Mockium sandbox', () => {
         expect(mockium.getReport().has({ type: 'CallEvent', path: 'getItems()[3].hey', arguments: [] })).to.be.true
         mockium.dispose()
     })
+
+    it('does not SIGSEGV', async () => {
+        const mockium = new Mockium({ logger })
+        await mockium.run('index.js',
+            'function doStuff() {\n' +
+            '    console.log("Doing stuff");\n' +
+            '}\n' +
+            'var tid;\n' +
+            'var debouncedCheck = function () {\n' +
+            '    clearTimeout(tid);\n' +
+            '    tid = setTimeout(doStuff, 100);\n' +
+            '};\n' +
+            'window.addEventListener("resize", debouncedCheck, false);\n' +
+            'var winLoad = function () {\n' +
+            '    window.removeEventListener("load", winLoad, false);\n' +
+            '    tid = setTimeout(doStuff, 0);\n' +
+            '};\n' +
+            'if (document.readyState !== "complete") {\n' +
+            '    window.addEventListener("load", winLoad, false);\n' +
+            '} else {\n' +
+            '    winLoad();\n' +
+            '}\n'
+        )
+        expect(mockium.getReport().has({ arguments: [ { literal: 'Doing stuff' }] })).to.be.true
+        mockium.dispose()
+    })
 })
 
 describe('Mockium hooks', () => {
