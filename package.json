@@ -5,7 +5,7 @@
     "type": "module",
     "scripts": {
         "lint": "tsc --noEmit && eslint .",
-        "test": "mocha --import=tsx 'src/**/*.test.ts'"
+        "test": "mocha --import=tsx 'tests/**/*.spec.ts'"
     },
     "dependencies": {
         "@types/node": "^20.12.8",

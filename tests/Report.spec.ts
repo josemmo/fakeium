@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import Report, { Location, ReportEvent } from './Report'
+import Report, { Location, ReportEvent } from '../src/Report'
 
 const TEST_LOCATION: Location = {
     filename: 'file:///test.js',

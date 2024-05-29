@@ -1,8 +1,16 @@
 import { assert, expect } from 'chai'
-import { ExecutionError, InvalidPathError, InvalidValueError, MemoryLimitError, ModuleNotFoundError, ParsingError, TimeoutError } from './errors'
-import Mockium from './Mockium'
-import { Reference } from './hooks'
-import { DefaultLogger } from './logger'
+import {
+    ExecutionError,
+    InvalidPathError,
+    InvalidValueError,
+    MemoryLimitError,
+    ModuleNotFoundError,
+    ParsingError,
+    TimeoutError
+} from '../src/errors'
+import Mockium from '../src/Mockium'
+import { Reference } from '../src/hooks'
+import { DefaultLogger } from '../src/logger'
 
 const logger = (process.env.LOG_LEVEL === 'debug') ? new DefaultLogger() : null
 
