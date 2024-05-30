@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import Mockium from '../src/Mockium'
+import { Mockium } from '../src/Mockium'
 import { DefaultLogger } from '../src/logger'
 import { readFileSync } from 'fs'
 import { dirname } from 'path'

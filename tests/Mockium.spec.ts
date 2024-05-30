@@ -8,7 +8,7 @@ import {
     SourceNotFoundError,
     TimeoutError,
 } from '../src/errors'
-import Mockium from '../src/Mockium'
+import { Mockium } from '../src/Mockium'
 import { Reference } from '../src/hooks'
 import { DefaultLogger } from '../src/logger'
 

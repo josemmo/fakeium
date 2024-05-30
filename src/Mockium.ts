@@ -10,7 +10,7 @@ import {
 } from './errors'
 import { Hook, Reference } from './hooks'
 import { LoggerInterface } from './logger'
-import Report, { ReportEvent } from './Report'
+import { Report, ReportEvent } from './Report'
 import ivm from 'isolated-vm'
 
 interface MockiumInstanceOptions {
@@ -54,7 +54,7 @@ const BOOTSTRAP_CODE = readFileSync(new URL('sandbox/bootstrap.js', import.meta.
  * Rather than replacing dynamic analysis, its main goal is to complement static analysis by detecting
  * API calls that would otherwise be missed using traditional AST parsing.
  */
-export default class Mockium {
+export class Mockium {
     private readonly options: Required<MockiumInstanceOptions>
     private resolver: SourceResolver = async () => null
     private hooks = new Map<string, Hook>()

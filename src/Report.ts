@@ -50,7 +50,7 @@ type Query = Partial<MappedOmit<ReportEvent, 'location'>> & { location?: Partial
 /**
  * Helper class for storing and traversing events reported by Mockium.
  */
-export default class Report {
+export class Report {
     private readonly events: ReportEvent[] = []
 
     /**
