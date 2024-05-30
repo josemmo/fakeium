@@ -77,6 +77,12 @@ export default class Mockium {
             this.hook(path, new Reference('globalThis'))
         }
 
+        // Setup document object
+        this.hook('document', {
+            nodeType: 9, // Node.DOCUMENT_NODE
+            readyState: 'complete',
+        })
+
         // Setup environment for browser extensions
         this.hook('browser', {})
         this.hook('chrome', new Reference('browser'))
