@@ -668,10 +668,28 @@ describe('Mockium hooks', () => {
         mockium.dispose()
     })
 
+    it('prevents mocking AMD loaders by default', async () => {
+        const mockium = new Mockium({ logger })
+        await mockium.run('index.js',
+            'if (define !== undefined || exports !== undefined || require !== undefined) {\n' +
+            '    throw new Error("Sandbox did not pass environment verification");\n' +
+            '}\n' +
+            'globalThis.define = () => alert("I can be overwritten from inside the sandbox");\n' +
+            'define();\n'
+        )
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'alert',
+            arguments: [ { literal: 'I can be overwritten from inside the sandbox' }],
+        })).to.be.true
+        mockium.dispose()
+    })
+
     it('supports hooking certain objects inside the sandbox', async () => {
         let somethingGotCalled = false
         const mockium = new Mockium({ logger })
         mockium.hook('sample.value', 'hello!')
+        mockium.hook('undefinedIsAlsoValid', undefined)
         mockium.hook('hookMe', () => 33)
         mockium.hook('something', async () => {
             somethingGotCalled = true
@@ -680,6 +698,7 @@ describe('Mockium hooks', () => {
         mockium.hook('test.something', new Reference('another.reference[0].to.somewhere'))
         await mockium.run('index.js',
             'console.log(sample.value);\n' +
+            'console.log(undefinedIsAlsoValid);\n' +
             'something();\n' +
             'window.something();\n' +
             'const res = hookMe();\n' +
@@ -687,6 +706,7 @@ describe('Mockium hooks', () => {
             'test.something.else();\n'
         )
         expect(mockium.getReport().has({ path: 'sample.value', value: { literal: 'hello!' } })).to.be.true
+        expect(mockium.getReport().has({ path: 'undefinedIsAlsoValid', value: { literal: undefined } })).to.be.true
         expect(mockium.getReport().has({ path: 'hookMe', returns: { literal: 33 } })).to.be.true
         expect(mockium.getReport().has({ path: 'something', returns: { literal: 123 } })).to.be.true
         expect(somethingGotCalled).to.be.true

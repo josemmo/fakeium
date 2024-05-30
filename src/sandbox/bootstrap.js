@@ -302,7 +302,8 @@ function createMock(path, template, thisArg) {
                     silentPaths.add(subpath)
                 } else if ('value' in hook) {
                     emitDebug(`Created hook with custom value for "${subpath}"`)
-                    target[property] = createMock(subpath, hook.value.copy())
+                    const value = hook.value.copy()
+                    target[property] = (value === undefined) ? undefined : createMock(subpath, value)
                 } else {
                     emitDebug(`Created hook binding external function at "${subpath}"`)
                     target[property] = createMock(subpath)
@@ -314,7 +315,7 @@ function createMock(path, template, thisArg) {
             } else if (!exists) {
                 emitDebug(`Mocked "${subpath}" object`)
                 target[property] = createMock(subpath)
-            } else if (!isMock(target[property]) && !isLiteral(target[property])) {
+            } else if (!isLiteral(target[property]) && !isMock(target[property])) {
                 emitDebug(`Patched existing "${subpath}" object`)
                 target[property] = createMock(subpath, target[property], target)
             }

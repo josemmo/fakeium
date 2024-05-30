@@ -91,6 +91,11 @@ export default class Mockium {
         // Setup environment for browser extensions
         this.hook('browser', {})
         this.hook('chrome', new Reference('browser'))
+
+        // Prevent mocking AMD module loaders
+        for (const path of ['define', 'exports', 'require']) {
+            this.hook(path, undefined)
+        }
     }
 
     /**
