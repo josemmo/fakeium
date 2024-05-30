@@ -17,9 +17,9 @@ export class InvalidValueError extends MockiumError {
 }
 
 /**
- * Error thrown when a module cannot be resolved.
+ * Error thrown when a script or module cannot be resolved.
  */
-export class ModuleNotFoundError extends MockiumError {
+export class SourceNotFoundError extends MockiumError {
     // Intentionally left blank
 }
 

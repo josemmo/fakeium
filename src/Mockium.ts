@@ -4,8 +4,8 @@ import {
     InvalidPathError,
     InvalidValueError,
     MemoryLimitError,
-    ModuleNotFoundError,
     ParsingError,
+    SourceNotFoundError,
     TimeoutError,
 } from './errors'
 import { Hook, Reference } from './hooks'
@@ -14,28 +14,32 @@ import Report, { ReportEvent } from './Report'
 import ivm from 'isolated-vm'
 
 interface MockiumInstanceOptions {
+    /** Type of sources to run (defaults to "script") */
+    sourceType?: 'script' | 'module'
     /** Origin to use when resolving relative specifiers (defaults to "file:///") */
     origin?: string
     /** Maximum amount of memory in MiB that the sandbox is allowed to allocate (defaults to 64MiB) */
     maxMemory?: number
-    /** Maximum execution time in milliseconds for scripts (defaults to 10000ms) */
+    /** Maximum execution time in milliseconds for sources (defaults to 10000ms) */
     timeout?: number
     /** Optional logger instance */
     logger?: LoggerInterface | null
 }
 
 interface MockiumRunOptions {
-    /** Maximum execution time in milliseconds just for this script */
+    /** Type of source for this particular run */
+    sourceType?: 'script' | 'module'
+    /** Maximum execution time in milliseconds just for this source */
     timeout?: number
 }
 
-type ModuleSourceCode = Buffer | string
+type SourceCode = Buffer | string
 
 /**
- * @param  url Absolute URL to module
- * @return     Module source code or `null` if not found
+ * @param  url Absolute URL to source
+ * @return     Source code or `null` if not found
  */
-type ModuleResolver = (url: URL) => Promise<ModuleSourceCode | null>
+type SourceResolver = (url: URL) => Promise<SourceCode | null>
 
 /** Pattern to match valid property path accessors */
 const PATH_PATTERN = /^[a-z_$][a-z0-9_$]*(\.[a-z_$][a-z0-9_$]*|\[".+?"\]|\['.+?'\]|\[\d+\])*$/i
@@ -52,7 +56,7 @@ const BOOTSTRAP_CODE = readFileSync(new URL('sandbox/bootstrap.js', import.meta.
  */
 export default class Mockium {
     private readonly options: Required<MockiumInstanceOptions>
-    private resolver: ModuleResolver = async () => null
+    private resolver: SourceResolver = async () => null
     private hooks = new Map<string, Hook>()
     private isolate: ivm.Isolate | null = null
     private readonly pathToModule = new Map<string, ivm.Module>()
@@ -65,6 +69,7 @@ export default class Mockium {
      */
     public constructor(options: MockiumInstanceOptions = {}) {
         this.options = {
+            sourceType: 'script',
             origin: 'file:///',
             maxMemory: 64,
             timeout: 10000,
@@ -89,10 +94,10 @@ export default class Mockium {
     }
 
     /**
-     * Set module resolver
+     * Set source resolver
      * @param resolver Resolver callback
      */
-    public setResolver(resolver: ModuleResolver): void {
+    public setResolver(resolver: SourceResolver): void {
         this.resolver = resolver
     }
 
@@ -156,24 +161,26 @@ export default class Mockium {
      * @param options   Additional execution options
      * @throws {ExecutionError} if an uncaught error was thrown inside the sandbox
      * @throws {MemoryLimitError} if exceeded max allowed memory for the instance
-     * @throws {ModuleNotFoundError} if failed to resolve specifier or imports
+     * @throws {ParsingError} if failed to parse source code
+     * @throws {SourceNotFoundError} if failed to resolve specifier or imports
      * @throws {TimeoutError} if exceeded max execution time
      */
     public async run(specifier: string, options?: MockiumRunOptions): Promise<void>
 
     /**
-     * Run code in sandbox
+     * Run source in sandbox
      * @param specifier  Specifier
      * @param sourceCode JavaScript source code
      * @param options    Additional execution options
      * @throws {ExecutionError} if an uncaught error was thrown inside the sandbox
      * @throws {MemoryLimitError} if exceeded max allowed memory for the instance
-     * @throws {ModuleNotFoundError} if failed to resolve imports
+     * @throws {ParsingError} if failed to parse source code
+     * @throws {SourceNotFoundError} if failed to resolve imports
      * @throws {TimeoutError} if exceeded max execution time
      */
-    public async run(specifier: string, sourceCode: ModuleSourceCode, options?: MockiumRunOptions): Promise<void>
-    public async run(specifier: string, b?: MockiumRunOptions | ModuleSourceCode, c?: MockiumRunOptions): Promise<void> {
-        let sourceCode: ModuleSourceCode | undefined = undefined
+    public async run(specifier: string, sourceCode: SourceCode, options?: MockiumRunOptions): Promise<void>
+    public async run(specifier: string, b?: MockiumRunOptions | SourceCode, c?: MockiumRunOptions): Promise<void> {
+        let sourceCode: SourceCode | undefined = undefined
         let options: MockiumRunOptions
         if (typeof b === 'string' || b instanceof Buffer) {
             sourceCode = b
@@ -182,6 +189,7 @@ export default class Mockium {
             options = b || {}
         }
         const timeout = options.timeout ?? this.options.timeout
+        const sourceType = options.sourceType || this.options.sourceType
 
         // Create isolate if needed
         if (this.isolate === null) {
@@ -194,9 +202,14 @@ export default class Mockium {
         const context = await this.isolate.createContext()
         await this.setupContext(context)
 
-        // Instantiate module
-        const module = await this.getModule(specifier, undefined, sourceCode)
-        await module.instantiate(context, (specifier, referrer) => this.getModule(specifier, referrer))
+        // Instantiate script or module
+        let scriptOrModule: ivm.Script | ivm.Module
+        if (sourceType === 'script') {
+            scriptOrModule = await this.getScript(specifier, sourceCode)
+        } else {
+            scriptOrModule = await this.getModule(specifier, undefined, sourceCode)
+            await scriptOrModule.instantiate(context, (specifier, referrer) => this.getModule(specifier, referrer))
+        }
 
         // Add hard-timeout listener
         // See https://github.com/laverdet/isolated-vm/issues/185
@@ -207,9 +220,13 @@ export default class Mockium {
             this.dispose(false)
         }, timeout+150)
 
-        // Run code as module
+        // Run source
         try {
-            await module.evaluate({ timeout })
+            if ('evaluate' in scriptOrModule) {
+                await scriptOrModule.evaluate({ timeout })
+            } else {
+                await scriptOrModule.run(context, { timeout })
+            }
         } catch (e) {
             if (!(e instanceof Error)) {
                 this.options.logger?.warn(`Expected Error from sandbox, received ${typeof e}`)
@@ -287,15 +304,50 @@ export default class Mockium {
     }
 
     /**
+     * Get script
+     * @param  specifier  Specifier
+     * @param  sourceCode Script source code (overrides resolver)
+     * @return            Script instance
+     * @throws {SourceNotFoundError} if failed to resolve script
+     * @throws {ParsingError} if failed to parse source code
+     */
+    private async getScript(specifier: string, sourceCode?: SourceCode): Promise<ivm.Script> {
+        const url = new URL(specifier, this.options.origin)
+
+        // Compile script
+        if (sourceCode === undefined) {
+            sourceCode = await this.resolver(url) ?? undefined
+            if (sourceCode === undefined) {
+                throw new SourceNotFoundError(`Cannot find script "${specifier}": failed to resolve absolute URL ${url.href}`)
+            }
+        }
+        if (this.isolate === null) {
+            throw new ReferenceError('Illegal instance state: missing isolate')
+        }
+        let script: ivm.Script
+        try {
+            script = this.isolate.compileScriptSync(`${sourceCode}`, { filename: url.href })
+        } catch (e) {
+            if (e instanceof SyntaxError) {
+                throw new ParsingError(e.message)
+            }
+            throw e
+        }
+        this.options.logger?.debug(`Compiled script ${url.href}`)
+
+        return script
+    }
+
+    /**
      * Get un-instantiated module
      * @param  specifier  Specifier
      * @param  referrer   Referrer module
      * @param  sourceCode Module source code (overrides resolver)
      * @return            Module instance
-     * @throws {ModuleNotFoundError} if failed to resolve module
+     * @throws {SourceNotFoundError} if failed to resolve module
      * @throws {ParsingError} if failed to parse source code
      */
-    private async getModule(specifier: string, referrer?: ivm.Module, sourceCode?: ModuleSourceCode): Promise<ivm.Module> {
+    private async getModule(specifier: string, referrer?: ivm.Module, sourceCode?: SourceCode): Promise<ivm.Module> {
         // Resolve absolute URL for module
         const relativeTo = referrer ? this.moduleToPath.get(referrer) : undefined
         const url = new URL(specifier, relativeTo || this.options.origin)
@@ -315,7 +367,7 @@ export default class Mockium {
         if (sourceCode === undefined) {
             sourceCode = await this.resolver(url) ?? undefined
             if (sourceCode === undefined) {
-                throw new ModuleNotFoundError(`Cannot find package "${specifier}": failed to resolve absolute URL ${url.href}`)
+                throw new SourceNotFoundError(`Cannot find module "${specifier}": failed to resolve absolute URL ${url.href}`)
             }
         }
         if (this.isolate === null) {

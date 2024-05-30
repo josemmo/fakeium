@@ -4,9 +4,9 @@ import {
     InvalidPathError,
     InvalidValueError,
     MemoryLimitError,
-    ModuleNotFoundError,
     ParsingError,
-    TimeoutError
+    SourceNotFoundError,
+    TimeoutError,
 } from '../src/errors'
 import Mockium from '../src/Mockium'
 import { Reference } from '../src/hooks'
@@ -21,11 +21,12 @@ describe('Mockium', () => {
         mockium.dispose()
     })
 
-    it('runs scripts without resolver', async () => {
+    it('runs sources without resolver', async () => {
         const mockium = new Mockium({ logger })
-        await mockium.run('example.js', '1+1') // Create new module with custom source code
-        await mockium.run('example.js')        // Run the same module (cached)
-        await mockium.run('example.js', '2+2') // Override cached module with new source code
+        await mockium.run('module.js', '1+1', { sourceType: 'module' }) // Create module with custom source code
+        await mockium.run('script.js', '2+2', { sourceType: 'script' }) // Create script with custom source code
+        await mockium.run('module.js', '3+3', { sourceType: 'module' }) // Override cached module with new source code
+        await mockium.run('script.js', '4+4', { sourceType: 'script' }) // Create script with new custom source code
         mockium.dispose()
     })
 
@@ -41,34 +42,46 @@ describe('Mockium', () => {
         await mockium.run('404.js', '// Not coming from resolver\n')
     })
 
-    it('throws an error for unresolved modules', async () => {
+    it('throws an error for unresolved sources', async () => {
         const mockium = new Mockium({ logger })
-        try {
-            await mockium.run('example.js')
-        } catch (e) {
-            expect(e).to.be.an.instanceOf(ModuleNotFoundError)
-            return
-        } finally {
-            mockium.dispose()
+        for (const sourceType of ['script', 'module'] as const) {
+            try {
+                await mockium.run(`${sourceType}.js`, { sourceType })
+                assert.fail('Mockium#run() did not throw any error')
+            } catch (e) {
+                expect(e).to.be.an.instanceOf(SourceNotFoundError)
+            }
         }
-        assert.fail('Mockium#run() did not throw any error')
+        mockium.dispose()
     })
 
     it('throws an error for invalid source code', async () => {
         const mockium = new Mockium({ logger })
+        for (const sourceType of ['script', 'module'] as const) {
+            try {
+                await mockium.run(`${sourceType}.js`, 'This is not JavaScript code', { sourceType })
+                assert.fail('Mockium#run() did not throw any error')
+            } catch (e) {
+                expect(e).to.be.an.instanceOf(ParsingError)
+            }
+        }
+        mockium.dispose()
+    })
+
+    it('assumes sources are scripts by default', async () => {
+        const mockium = new Mockium({ logger })
         try {
-            await mockium.run('example.js', 'This is not JavaScript code')
+            await mockium.run('index.js', 'import "something.js"')
+            assert.fail('Mockium#run() did not throw any error')
         } catch (e) {
             expect(e).to.be.an.instanceOf(ParsingError)
-            return
-        } finally {
-            mockium.dispose()
+            expect(e).to.have.a.property('message').that.matches(/^Cannot use import statement outside a module/)
         }
-        assert.fail('Mockium#run() did not throw any error')
+        mockium.dispose()
     })
 
     it('resolves module specifiers', async () => {
-        const mockium = new Mockium({ logger })
+        const mockium = new Mockium({ logger, sourceType: 'module' })
         mockium.setResolver(async url => {
             if (url.pathname === '/index.js') {
                 return 'import "./subdir/b.js";\n' +
@@ -106,10 +119,10 @@ describe('Mockium', () => {
         // Run unsuccessful code
         try {
             await mockium.run('./crash.js')
-            throw new Error('Did not crash when importing missing module')
+            assert.fail('Did not crash when importing missing module')
         } catch (e) {
-            expect(e).to.be.an.instanceOf(ModuleNotFoundError)
-            expect(e).to.have.a.property('message').that.matches(/^Cannot find package "fake\/path\/to\/module.js"/)
+            expect(e).to.be.an.instanceOf(SourceNotFoundError)
+            expect(e).to.have.a.property('message').that.matches(/^Cannot find module "fake\/path\/to\/module.js"/)
         }
 
         mockium.dispose()
@@ -130,16 +143,16 @@ describe('Mockium', () => {
 
     it('throws an error on timeout', async () => {
         const mockium = new Mockium({ logger, timeout: 500 })
-        try {
-            await mockium.run('endless.js', 'while (true) {;;}')
-        } catch (e) {
-            expect(e).to.be.an.instanceOf(TimeoutError)
-            return
-        } finally {
-            mockium.dispose()
+        for (const sourceType of ['script', 'module'] as const) {
+            try {
+                await mockium.run('endless.js', 'while (true) {;;}', { sourceType })
+                assert.fail('Mockium#run() did not throw any error')
+            } catch (e) {
+                expect(e).to.be.an.instanceOf(TimeoutError)
+            }
         }
-        assert.fail('Mockium#run() did not throw any error')
-    }).timeout(1000)
+        mockium.dispose()
+    }).timeout(3000)
 
     it('throw an error on memory exhaustion', async () => {
         const mockium = new Mockium({ logger, maxMemory: 8 })
@@ -317,7 +330,7 @@ describe('Mockium sandbox', () => {
     })
 
     it('runs code with module imports', async () => {
-        const mockium = new Mockium({ logger })
+        const mockium = new Mockium({ logger, sourceType: 'module' })
         mockium.setResolver(async url => {
             if (url.href === 'file:///index.js') {
                 return 'import { callMe } from "./test.js";\n' +
@@ -553,6 +566,23 @@ describe('Mockium sandbox', () => {
             '}\n'
         )
         expect(mockium.getReport().has({ type: 'CallEvent', path: 'getItems()[3].hey', arguments: [] })).to.be.true
+        mockium.dispose()
+    })
+
+    it('uses different scopes for scripts and modules', async () => {
+        const mockium = new Mockium({ logger })
+        await mockium.run('script.js',
+            'if (this === undefined || this !== globalThis) {\n' +
+            '    throw new Error("Invalid scope");\n' +
+            '}\n',
+            { sourceType: 'script' },
+        )
+        await mockium.run('module.js',
+            'if (this !== undefined || globalThis === undefined) {\n' +
+            '    throw new Error("Invalid scope");\n' +
+            '}\n',
+            { sourceType: 'module' },
+        )
         mockium.dispose()
     })
 

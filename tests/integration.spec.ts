@@ -34,7 +34,7 @@ describe('Integration', () => {
     })
 
     it('webext.js', async () => {
-        const mockium = new Mockium({ logger })
+        const mockium = new Mockium({ logger, sourceType: 'module' })
         mockium.setResolver(async () => readFileSync(`${DATA_DIR}/webext.txt`))
         await mockium.run('index.js',
             'import webext from "webext.js";\n' +
