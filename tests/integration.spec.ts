@@ -33,6 +33,27 @@ describe('Integration', () => {
         mockium.dispose()
     })
 
+    it('moment.js', async () => {
+        const mockium = new Mockium({ logger })
+        await mockium.run('moment.js',
+            readFileSync(`${DATA_DIR}/moment.txt`, 'utf-8') + '\n' +
+            'console.log("Date is " + moment("01022003", "DDMMYYYY").format("YYYY-MM-DD"));\n'
+        )
+        expect(mockium.getReport().has({
+            type: 'CallEvent',
+            path: 'console.log',
+            arguments: [ { literal: 'Date is 2003-02-01' }],
+        }))
+        mockium.dispose()
+    })
+
+    it('react.min.js', async () => {
+        const mockium = new Mockium({ logger })
+        await mockium.run('react.min.js', readFileSync(`${DATA_DIR}/react.min.txt`))
+        expect(mockium.getReport().has({ type: 'SetEvent', path: 'React' })).to.be.true
+        mockium.dispose()
+    })
+
     it('webext.js', async () => {
         const mockium = new Mockium({ logger, sourceType: 'module' })
         mockium.setResolver(async () => readFileSync(`${DATA_DIR}/webext.txt`))
