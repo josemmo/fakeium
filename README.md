@@ -1,6 +1,7 @@
 <p align="center"><a href="https://github.com/josemmo/mockium"><img src="logo.png" alt="Mockium" width="400"></a></p>
 <p align="center">
     <a href="https://github.com/josemmo/mockium/actions"><img src="https://github.com/josemmo/mockium/actions/workflows/tests.yml/badge.svg"></a>
+    <a href="https://github.com/josemmo/mockium"><img src="https://tokei.rs/b1/github/josemmo/mockium?style=flat"></a>
     <a href="LICENSE"><img src="https://img.shields.io/github/license/josemmo/mockium.svg"></a>
 </p>
 
