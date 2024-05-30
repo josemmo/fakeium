@@ -45,7 +45,7 @@ type SourceResolver = (url: URL) => Promise<SourceCode | null>
 const PATH_PATTERN = /^[a-z_$][a-z0-9_$]*(\.[a-z_$][a-z0-9_$]*|\[".+?"\]|\['.+?'\]|\[\d+\])*$/i
 
 /** JavaScript bootstrap code to run inside the sandbox */
-const BOOTSTRAP_CODE = readFileSync(new URL('sandbox/bootstrap.js', import.meta.url), 'utf-8')
+const BOOTSTRAP_CODE = readFileSync(new URL('bootstrap.js', import.meta.url), 'utf-8')
 
 /**
  * Mockium (from "mock" and "Chromium") is a simple yet *safe* instrumented environment for running
