@@ -12,4 +12,7 @@ export default tseslint.config(
             'no-regex-spaces': 'off',
         },
     },
+    {
+        ignores: ['dist/*'],
+    },
 )

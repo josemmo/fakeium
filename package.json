@@ -1,10 +1,15 @@
 {
     "name": "mockium",
     "version": "0.0.1",
+    "author": "José Miguel Moreno <josemmo@pm.me>",
+    "homepage": "https://github.com/josemmo/mockium",
     "license": "MIT",
     "type": "module",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
     "scripts": {
         "lint": "tsc --noEmit && eslint .",
+        "build": "pkgroll --clean-dist && tsx after-build.ts",
         "test": "mocha --import=tsx 'tests/**/*.spec.ts'"
     },
     "dependencies": {
@@ -18,6 +23,7 @@
         "chai": "^5.1.0",
         "eslint": "^9.2.0",
         "mocha": "^10.4.0",
+        "pkgroll": "^2.1.1",
         "tsx": "^4.9.3",
         "typescript": "^5.4.5",
         "typescript-eslint": "^7.8.0"
