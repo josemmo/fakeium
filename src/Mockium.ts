@@ -203,7 +203,7 @@ export default class Mockium {
 
         // Run code as module
         try {
-            await module.evaluate({timeout})
+            await module.evaluate({ timeout })
         } catch (e) {
             if (!(e instanceof Error)) {
                 this.options.logger?.warn(`Expected Error from sandbox, received ${typeof e}`)
