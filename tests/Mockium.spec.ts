@@ -8,81 +8,81 @@ import {
     SourceNotFoundError,
     TimeoutError,
 } from '../src/errors'
-import { Mockium } from '../src/Mockium'
+import { Fakeium } from '../src/Fakeium'
 import { Reference } from '../src/hooks'
 import { DefaultLogger } from '../src/logger'
 
 const logger = (process.env.LOG_LEVEL === 'debug') ? new DefaultLogger() : null
 
-describe('Mockium', () => {
+describe('Fakeium', () => {
     it('initializes and disposes', async () => {
-        const mockium = new Mockium({ logger })
-        expect(mockium.getReport().size()).to.be.equal(0)
-        mockium.dispose()
+        const fakeium = new Fakeium({ logger })
+        expect(fakeium.getReport().size()).to.be.equal(0)
+        fakeium.dispose()
     })
 
     it('runs sources without resolver', async () => {
-        const mockium = new Mockium({ logger })
-        await mockium.run('module.js', '1+1', { sourceType: 'module' }) // Create module with custom source code
-        await mockium.run('script.js', '2+2', { sourceType: 'script' }) // Create script with custom source code
-        await mockium.run('module.js', '3+3', { sourceType: 'module' }) // Override cached module with new source code
-        await mockium.run('script.js', '4+4', { sourceType: 'script' }) // Create script with new custom source code
-        mockium.dispose()
+        const fakeium = new Fakeium({ logger })
+        await fakeium.run('module.js', '1+1', { sourceType: 'module' }) // Create module with custom source code
+        await fakeium.run('script.js', '2+2', { sourceType: 'script' }) // Create script with custom source code
+        await fakeium.run('module.js', '3+3', { sourceType: 'module' }) // Override cached module with new source code
+        await fakeium.run('script.js', '4+4', { sourceType: 'script' }) // Create script with new custom source code
+        fakeium.dispose()
     })
 
     it('runs scripts with resolver', async () => {
-        const mockium = new Mockium({ logger, origin: 'https://localhost' })
-        mockium.setResolver(async url => {
+        const fakeium = new Fakeium({ logger, origin: 'https://localhost' })
+        fakeium.setResolver(async url => {
             if (url.href === 'https://localhost/index.js') {
                 return '// This is the index\n'
             }
             return null
         })
-        await mockium.run('index.js')
-        await mockium.run('404.js', '// Not coming from resolver\n')
+        await fakeium.run('index.js')
+        await fakeium.run('404.js', '// Not coming from resolver\n')
     })
 
     it('throws an error for unresolved sources', async () => {
-        const mockium = new Mockium({ logger })
+        const fakeium = new Fakeium({ logger })
         for (const sourceType of ['script', 'module'] as const) {
             try {
-                await mockium.run(`${sourceType}.js`, { sourceType })
-                assert.fail('Mockium#run() did not throw any error')
+                await fakeium.run(`${sourceType}.js`, { sourceType })
+                assert.fail('Fakeium#run() did not throw any error')
             } catch (e) {
                 expect(e).to.be.an.instanceOf(SourceNotFoundError)
             }
         }
-        mockium.dispose()
+        fakeium.dispose()
     })
 
     it('throws an error for invalid source code', async () => {
-        const mockium = new Mockium({ logger })
+        const fakeium = new Fakeium({ logger })
         for (const sourceType of ['script', 'module'] as const) {
             try {
-                await mockium.run(`${sourceType}.js`, 'This is not JavaScript code', { sourceType })
-                assert.fail('Mockium#run() did not throw any error')
+                await fakeium.run(`${sourceType}.js`, 'This is not JavaScript code', { sourceType })
+                assert.fail('Fakeium#run() did not throw any error')
             } catch (e) {
                 expect(e).to.be.an.instanceOf(ParsingError)
             }
         }
-        mockium.dispose()
+        fakeium.dispose()
     })
 
     it('assumes sources are scripts by default', async () => {
-        const mockium = new Mockium({ logger })
+        const fakeium = new Fakeium({ logger })
         try {
-            await mockium.run('index.js', 'import "something.js"')
-            assert.fail('Mockium#run() did not throw any error')
+            await fakeium.run('index.js', 'import "something.js"')
+            assert.fail('Fakeium#run() did not throw any error')
         } catch (e) {
             expect(e).to.be.an.instanceOf(ParsingError)
             expect(e).to.have.a.property('message').that.matches(/^Cannot use import statement outside a module/)
         }
-        mockium.dispose()
+        fakeium.dispose()
     })
 
     it('resolves module specifiers', async () => {
-        const mockium = new Mockium({ logger, sourceType: 'module' })
-        mockium.setResolver(async url => {
+        const fakeium = new Fakeium({ logger, sourceType: 'module' })
+        fakeium.setResolver(async url => {
             if (url.pathname === '/index.js') {
                 return 'import "./subdir/b.js";\n' +
                        'import "subdir/c.js";\n' +
@@ -112,70 +112,70 @@ describe('Mockium', () => {
         })
 
         // Run successful code
-        await mockium.run('./index.js')
-        await mockium.run('something/with spaces.js')
-        await mockium.run('hash.js#this-is-a-fragment')
+        await fakeium.run('./index.js')
+        await fakeium.run('something/with spaces.js')
+        await fakeium.run('hash.js#this-is-a-fragment')
 
         // Run unsuccessful code
         try {
-            await mockium.run('./crash.js')
+            await fakeium.run('./crash.js')
             assert.fail('Did not crash when importing missing module')
         } catch (e) {
             expect(e).to.be.an.instanceOf(SourceNotFoundError)
             expect(e).to.have.a.property('message').that.matches(/^Cannot find module "fake\/path\/to\/module.js"/)
         }
 
-        mockium.dispose()
+        fakeium.dispose()
     })
 
     it('propagates unhandled sandbox errors', async () => {
-        const mockium = new Mockium({ logger })
+        const fakeium = new Fakeium({ logger })
         try {
-            await mockium.run('crash.js', 'throw new Error("oh no!");')
+            await fakeium.run('crash.js', 'throw new Error("oh no!");')
         } catch (e) {
             expect(e).to.be.an.instanceOf(ExecutionError)
             return
         } finally {
-            mockium.dispose()
+            fakeium.dispose()
         }
-        assert.fail('Mockium#run() did not throw any error')
+        assert.fail('Fakeium#run() did not throw any error')
     })
 
     it('throws an error on timeout', async () => {
-        const mockium = new Mockium({ logger, timeout: 500 })
+        const fakeium = new Fakeium({ logger, timeout: 500 })
         for (const sourceType of ['script', 'module'] as const) {
             try {
-                await mockium.run('endless.js', 'while (true) {;;}', { sourceType })
-                assert.fail('Mockium#run() did not throw any error')
+                await fakeium.run('endless.js', 'while (true) {;;}', { sourceType })
+                assert.fail('Fakeium#run() did not throw any error')
             } catch (e) {
                 expect(e).to.be.an.instanceOf(TimeoutError)
             }
         }
-        mockium.dispose()
+        fakeium.dispose()
     }).timeout(3000)
 
     it('throw an error on memory exhaustion', async () => {
-        const mockium = new Mockium({ logger, maxMemory: 8 })
+        const fakeium = new Fakeium({ logger, maxMemory: 8 })
         const code = 'const garbage = [];\n' +
                      'while (true) {\n' +
                      '    garbage.push("abcdefghijklmnopqrstuvwxyz".repeat(1024));\n' +
                      '}\n'
         try {
-            await mockium.run('crash.js', code)
+            await fakeium.run('crash.js', code)
         } catch (e) {
             expect(e).to.be.an.instanceOf(MemoryLimitError)
             return
         } finally {
-            mockium.dispose()
+            fakeium.dispose()
         }
-        assert.fail('Mockium#run() did not throw any error')
+        assert.fail('Fakeium#run() did not throw any error')
     })
 })
 
-describe('Mockium sandbox', () => {
+describe('Fakeium sandbox', () => {
     it('assigns incremental value IDs', async () => {
-        const mockium = new Mockium({ logger })
-        mockium.setResolver(async () => {
+        const fakeium = new Fakeium({ logger })
+        fakeium.setResolver(async () => {
             return '(async () => {\n' +
                    '    const a = JSON.stringify({ tag: "a" });\n' +
                    '    const b = JSON.stringify({ tag: "b" });\n' +
@@ -183,8 +183,8 @@ describe('Mockium sandbox', () => {
                    '    callMe(b);\n' +
                    '})();\n'
         })
-        await mockium.run('index.js')
-        expect(mockium.getReport().getAll()).to.deep.equal([
+        await fakeium.run('index.js')
+        expect(fakeium.getReport().getAll()).to.deep.equal([
             {
                 type: 'GetEvent',
                 path: 'JSON',
@@ -254,55 +254,55 @@ describe('Mockium sandbox', () => {
                 location: { filename: 'file:///index.js', line: 5, column: 5 },
             }
         ])
-        mockium.dispose()
+        fakeium.dispose()
     })
 
     it('assigns incremental value IDs after clearing and dispose', async () => {
-        const mockium = new Mockium({ logger })
+        const fakeium = new Fakeium({ logger })
 
-        await mockium.run('first.js', 'first()')
-        expect(mockium.getReport().has({ type: 'CallEvent', path: 'first', returns: { ref: 2 } })).to.be.true
-        mockium.getReport().clear()
+        await fakeium.run('first.js', 'first()')
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'first', returns: { ref: 2 } })).to.be.true
+        fakeium.getReport().clear()
 
-        await mockium.run('second.js', 'second()')
-        expect(mockium.getReport().has({ path: 'first' })).to.be.false
-        expect(mockium.getReport().has({ type: 'CallEvent', path: 'second', returns: { ref: 4 } })).to.be.true
-        mockium.dispose()
+        await fakeium.run('second.js', 'second()')
+        expect(fakeium.getReport().has({ path: 'first' })).to.be.false
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'second', returns: { ref: 4 } })).to.be.true
+        fakeium.dispose()
 
-        await mockium.run('third.js', 'third()')
-        expect(mockium.getReport().has({ path: 'first' })).to.be.false
-        expect(mockium.getReport().has({ path: 'second' })).to.be.false
-        expect(mockium.getReport().has({ type: 'CallEvent', path: 'third', returns: { ref: 2 } })).to.be.true
+        await fakeium.run('third.js', 'third()')
+        expect(fakeium.getReport().has({ path: 'first' })).to.be.false
+        expect(fakeium.getReport().has({ path: 'second' })).to.be.false
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'third', returns: { ref: 2 } })).to.be.true
     })
 
     it('resolves paths in both dot and bracket notation', async () => {
-        const mockium = new Mockium({ logger })
-        await mockium.run('index.js',
+        const fakeium = new Fakeium({ logger })
+        await fakeium.run('index.js',
             'a.b.c[123];\n' +
             'a.b.c.d[\'with space\'].e;\n' +
             'a.b.$1;\n'
         )
-        expect(mockium.getReport().has({ type: 'GetEvent', path: 'a.b.c[123]' })).to.be.true
-        expect(mockium.getReport().has({ type: 'GetEvent', path: 'a.b.c.d["with space"].e' })).to.be.true
-        expect(mockium.getReport().has({ type: 'GetEvent', path: 'a.b.$1' })).to.be.true
-        mockium.dispose()
+        expect(fakeium.getReport().has({ type: 'GetEvent', path: 'a.b.c[123]' })).to.be.true
+        expect(fakeium.getReport().has({ type: 'GetEvent', path: 'a.b.c.d["with space"].e' })).to.be.true
+        expect(fakeium.getReport().has({ type: 'GetEvent', path: 'a.b.$1' })).to.be.true
+        fakeium.dispose()
     })
 
     it('logs simple function calls', async() => {
-        const mockium = new Mockium({ logger })
-        await mockium.run('index.js', 'console.log(something, 123)')
-        expect(mockium.getReport().has({
+        const fakeium = new Fakeium({ logger })
+        await fakeium.run('index.js', 'console.log(something, 123)')
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'console.log',
             arguments: [ { ref: 3 }, { literal: 123 } ],
         })).to.be.true
-        mockium.dispose()
-        expect(mockium.getReport().size()).to.equal(0)
+        fakeium.dispose()
+        expect(fakeium.getReport().size()).to.equal(0)
     })
 
     it('logs thenable function calls', async () => {
-        const mockium = new Mockium({ logger })
-        await mockium.run('index.js',
+        const fakeium = new Fakeium({ logger })
+        await fakeium.run('index.js',
             '(async () => {\n' +
             '    const res = await aPromise();\n' +
             '    console.log(res);\n' +
@@ -313,25 +313,25 @@ describe('Mockium sandbox', () => {
             '    reachedEnd(sameRes);\n' +
             '})();\n'
         )
-        expect(mockium.getReport().has({ type: 'CallEvent', path: 'aPromise', returns: { ref: 2 } })).to.be.true
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'aPromise', returns: { ref: 2 } })).to.be.true
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'console.log',
             arguments: [ { ref: 2 } ],
             returns: { literal: undefined },
         })).to.be.true
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'reachedEnd',
             arguments: [ { ref: 2 } ],
             returns: { ref: 6 },
         })).to.be.true
-        mockium.dispose()
+        fakeium.dispose()
     })
 
     it('runs code with module imports', async () => {
-        const mockium = new Mockium({ logger, sourceType: 'module' })
-        mockium.setResolver(async url => {
+        const fakeium = new Fakeium({ logger, sourceType: 'module' })
+        fakeium.setResolver(async url => {
             if (url.href === 'file:///index.js') {
                 return 'import { callMe } from "./test.js";\n' +
                        'import "./subdir/hey.js";\n' +
@@ -354,8 +354,8 @@ describe('Mockium sandbox', () => {
             }
             return null
         })
-        await mockium.run('./index.js')
-        expect(mockium.getReport().getAll()).to.deep.equal([
+        await fakeium.run('./index.js')
+        expect(fakeium.getReport().getAll()).to.deep.equal([
             {
                 type: 'GetEvent',
                 path: 'weirdName',
@@ -399,24 +399,24 @@ describe('Mockium sandbox', () => {
                 location: { filename: 'file:///index.js', line: 3, column: 1 },
             }
         ])
-        mockium.dispose()
+        fakeium.dispose()
     })
 
     it('runs eval code', async () => {
-        const mockium = new Mockium({ logger })
-        await mockium.run('index.js', 'alert(eval("1+1"))')
-        expect(mockium.getReport().has({
+        const fakeium = new Fakeium({ logger })
+        await fakeium.run('index.js', 'alert(eval("1+1"))')
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'eval',
             arguments: [ { literal: '1+1' } ],
             returns: { literal: 2 },
         })).to.be.true
-        mockium.dispose()
+        fakeium.dispose()
     })
 
     it('handles constructors', async () => {
-        const mockium = new Mockium({ logger })
-        await mockium.run('index.js',
+        const fakeium = new Fakeium({ logger })
+        await fakeium.run('index.js',
             '(async () => {\n' +
             '    const dateAsJson = new Date("2021-01-02").toJSON();\n' +
             '    crypto.getRandomValues(new Uint32Array(16));\n' +
@@ -431,14 +431,14 @@ describe('Mockium sandbox', () => {
             '})();\n'
         )
 
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'Date',
             arguments: [ { literal: '2021-01-02' } ],
             returns: { ref: 2 },
             isConstructor: true,
         })).to.be.true
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'Date().toJSON',
             arguments: [],
@@ -446,14 +446,14 @@ describe('Mockium sandbox', () => {
             isConstructor: false,
         })).to.be.true
 
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'Uint32Array',
             arguments: [ { literal: 16 } ],
             returns: { ref: 7 },
             isConstructor: true,
         })).to.be.true
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'crypto.getRandomValues',
             arguments: [ { ref: 7 } ],
@@ -461,39 +461,39 @@ describe('Mockium sandbox', () => {
             isConstructor: false,
         })).to.be.true
 
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'getThing',
             arguments: [ { literal: '2021-01-02T00:00:00.000Z' } ],
             returns: { ref: 11 },
             isConstructor: true,
         })).to.be.true
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'getAsyncThing',
             arguments: [ { ref: 11 } ],
             isConstructor: true,
         })).to.be.true
 
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'XMLHttpRequest',
             arguments: [],
             isConstructor: true,
         })).to.be.true
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'XMLHttpRequest().open',
             arguments: [ { literal: 'GET' }, { literal: 'https://www.example.com/' } ],
             isConstructor: false,
         })).to.be.true
 
-        mockium.dispose()
+        fakeium.dispose()
     })
 
     it('handles calling of functions in several ways', async () => {
-        const mockium = new Mockium({ logger })
-        await mockium.run('index.js',
+        const fakeium = new Fakeium({ logger })
+        await fakeium.run('index.js',
             'function test() {\n' +
             '    done();\n' +
             '}\n' +
@@ -504,36 +504,36 @@ describe('Mockium sandbox', () => {
             '    test.apply(null, []);\n' +
             '})();\n'
         )
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'something',
             arguments: [ { literal: 1 }, { literal: 2 }, { literal: 3 } ],
             isConstructor: false,
         })).to.be.true
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'another.thing',
             arguments: [ { literal: 'hey' } ],
             isConstructor: false,
         })).to.be.true
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'another.something',
             arguments: [],
             isConstructor: false,
         })).to.be.true
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'done',
             arguments: [],
             isConstructor: false,
         })).to.be.true
-        mockium.dispose()
+        fakeium.dispose()
     })
 
     it('handles callbacks and event listeners', async () => {
-        const mockium = new Mockium({ logger })
-        await mockium.run('index.js',
+        const fakeium = new Fakeium({ logger })
+        await fakeium.run('index.js',
             'window.addEventListener("load", function() {\n' +
             '    navigator.gotCalled();\n' +
             '    throw new Error("Crash!");\n' +
@@ -543,52 +543,52 @@ describe('Mockium sandbox', () => {
             '    also.gotCalled();\n' +
             '});\n'
         )
-        expect(mockium.getReport().has({ type: 'CallEvent', path: 'navigator.gotCalled' })).to.be.true
-        expect(mockium.getReport().has({ type: 'CallEvent', path: 'also.gotCalled' })).to.be.true
-        mockium.dispose()
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'navigator.gotCalled' })).to.be.true
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'also.gotCalled' })).to.be.true
+        fakeium.dispose()
     })
 
     it('creates mocks that can be converted to primitive values', async () => {
-        const mockium = new Mockium({ logger })
-        await mockium.run('index.js',
+        const fakeium = new Fakeium({ logger })
+        await fakeium.run('index.js',
             'const diff = 123_456 - document.createEvent("Event").timeStamp;\n' +
             'console.log(diff);\n'
         )
-        expect(mockium.getReport().has({ type: 'CallEvent', path: 'console.log', arguments: [ {literal: 123456 }] }))
-        mockium.dispose()
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'console.log', arguments: [ {literal: 123456 }] }))
+        fakeium.dispose()
     })
 
     it('handles iterators', async () => {
-        const mockium = new Mockium({ logger })
-        await mockium.run('index.js',
+        const fakeium = new Fakeium({ logger })
+        await fakeium.run('index.js',
             'for (const test of getItems()) {\n' +
             '    console.log(test.hey());\n' +
             '}\n'
         )
-        expect(mockium.getReport().has({ type: 'CallEvent', path: 'getItems()[3].hey', arguments: [] })).to.be.true
-        mockium.dispose()
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'getItems()[3].hey', arguments: [] })).to.be.true
+        fakeium.dispose()
     })
 
     it('uses different scopes for scripts and modules', async () => {
-        const mockium = new Mockium({ logger })
-        await mockium.run('script.js',
+        const fakeium = new Fakeium({ logger })
+        await fakeium.run('script.js',
             'if (this === undefined || this !== globalThis) {\n' +
             '    throw new Error("Invalid scope");\n' +
             '}\n',
             { sourceType: 'script' },
         )
-        await mockium.run('module.js',
+        await fakeium.run('module.js',
             'if (this !== undefined || globalThis === undefined) {\n' +
             '    throw new Error("Invalid scope");\n' +
             '}\n',
             { sourceType: 'module' },
         )
-        mockium.dispose()
+        fakeium.dispose()
     })
 
     it('does not SIGSEGV', async () => {
-        const mockium = new Mockium({ logger })
-        await mockium.run('index.js',
+        const fakeium = new Fakeium({ logger })
+        await fakeium.run('index.js',
             'function doStuff() {\n' +
             '    console.log("Doing stuff");\n' +
             '}\n' +
@@ -608,95 +608,95 @@ describe('Mockium sandbox', () => {
             '    winLoad();\n' +
             '}\n'
         )
-        expect(mockium.getReport().has({ arguments: [ { literal: 'Doing stuff' }] })).to.be.true
-        mockium.dispose()
+        expect(fakeium.getReport().has({ arguments: [ { literal: 'Doing stuff' }] })).to.be.true
+        fakeium.dispose()
     })
 })
 
-describe('Mockium hooks', () => {
+describe('Fakeium hooks', () => {
     it('throws an error for invalid paths', async () => {
-        const mockium = new Mockium({ logger })
-        expect(() => mockium.hook('This is clearly not a valid path', '')).to.throw(InvalidPathError)
-        expect(() => mockium.hook('a.b.0.c', '')).to.throw(InvalidPathError)
-        expect(() => mockium.hook('hey[0.unclosed_bracket', '')).to.throw(InvalidPathError)
-        expect(() => mockium.hook('valid.path', new Reference('invalid path'))).to.throw(InvalidPathError)
-        mockium.dispose()
+        const fakeium = new Fakeium({ logger })
+        expect(() => fakeium.hook('This is clearly not a valid path', '')).to.throw(InvalidPathError)
+        expect(() => fakeium.hook('a.b.0.c', '')).to.throw(InvalidPathError)
+        expect(() => fakeium.hook('hey[0.unclosed_bracket', '')).to.throw(InvalidPathError)
+        expect(() => fakeium.hook('valid.path', new Reference('invalid path'))).to.throw(InvalidPathError)
+        fakeium.dispose()
     })
 
     it('throws an error for non-transferable values', () => {
-        const mockium = new Mockium({ logger })
-        expect(() => mockium.hook('something', Symbol('test'))).to.throw(InvalidValueError)
-        mockium.dispose()
+        const fakeium = new Fakeium({ logger })
+        expect(() => fakeium.hook('something', Symbol('test'))).to.throw(InvalidValueError)
+        fakeium.dispose()
     })
 
     it('aliases window and other objects to globalThis by default', async () => {
-        const mockium = new Mockium({ logger })
-        await mockium.run('index.js',
+        const fakeium = new Fakeium({ logger })
+        await fakeium.run('index.js',
             'for (const item of [frames, global, parent, self, window]) {\n' +
             '    if (typeof item !== "object" || item !== globalThis) {\n' +
             '        throw new Error("Sandbox did not pass environment verification");\n' +
             '    }\n' +
             '}\n'
         )
-        mockium.dispose()
+        fakeium.dispose()
     })
 
     it('fakes browser extensions environment by default', async () => {
-        const mockium = new Mockium({ logger })
+        const fakeium = new Fakeium({ logger })
 
         // Ensure predefined mocks are correct
-        await mockium.run('index.js',
+        await fakeium.run('index.js',
             '// "globalThis.chrome" must be an object, not a function\n' +
             'if (typeof chrome !== "object" || !chrome || !chrome.runtime || !chrome.runtime.id || chrome !== browser) {\n' +
             '    throw new Error("Sandbox did not pass environment verification");\n' +
             '}\n'
         )
-        mockium.dispose()
+        fakeium.dispose()
 
         // Validate auto-wiring of "chrome" to "browser" object
-        await mockium.run('index.js',
+        await fakeium.run('index.js',
             '(async () => {\n' +
             '    const [ tab ] = await chrome.tabs.query({ active: true });\n' +
             '    const response = await browser.tabs.sendMessage(tab.id, { greeting: "hello" });\n' +
             '})();\n'
         )
-        expect(mockium.getReport().has({ type: 'CallEvent', path: 'browser.tabs.query' })).to.be.true
-        expect(mockium.getReport().has({ type: 'CallEvent', path: 'browser.tabs.sendMessage' })).to.be.true
-        expect(mockium.getReport().has({ path: 'chrome.tabs.query' })).to.be.false
-        expect(mockium.getReport().has({ path: 'chrome.tabs.sendMessage' })).to.be.false
-        expect(mockium.getReport().has({ path: 'chrome' })).to.be.false
-        mockium.dispose()
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'browser.tabs.query' })).to.be.true
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'browser.tabs.sendMessage' })).to.be.true
+        expect(fakeium.getReport().has({ path: 'chrome.tabs.query' })).to.be.false
+        expect(fakeium.getReport().has({ path: 'chrome.tabs.sendMessage' })).to.be.false
+        expect(fakeium.getReport().has({ path: 'chrome' })).to.be.false
+        fakeium.dispose()
     })
 
     it('prevents mocking AMD loaders by default', async () => {
-        const mockium = new Mockium({ logger })
-        await mockium.run('index.js',
+        const fakeium = new Fakeium({ logger })
+        await fakeium.run('index.js',
             'if (define !== undefined || exports !== undefined || require !== undefined) {\n' +
             '    throw new Error("Sandbox did not pass environment verification");\n' +
             '}\n' +
             'globalThis.define = () => alert("I can be overwritten from inside the sandbox");\n' +
             'define();\n'
         )
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'alert',
             arguments: [ { literal: 'I can be overwritten from inside the sandbox' }],
         })).to.be.true
-        mockium.dispose()
+        fakeium.dispose()
     })
 
     it('supports hooking certain objects inside the sandbox', async () => {
         let somethingGotCalled = false
-        const mockium = new Mockium({ logger })
-        mockium.hook('sample.value', 'hello!')
-        mockium.hook('undefinedIsAlsoValid', undefined)
-        mockium.hook('hookMe', () => 33)
-        mockium.hook('something', async () => {
+        const fakeium = new Fakeium({ logger })
+        fakeium.hook('sample.value', 'hello!')
+        fakeium.hook('undefinedIsAlsoValid', undefined)
+        fakeium.hook('hookMe', () => 33)
+        fakeium.hook('something', async () => {
             somethingGotCalled = true
             return 123
         })
-        mockium.hook('test.something', new Reference('another.reference[0].to.somewhere'))
-        await mockium.run('index.js',
+        fakeium.hook('test.something', new Reference('another.reference[0].to.somewhere'))
+        await fakeium.run('index.js',
             'console.log(sample.value);\n' +
             'console.log(undefinedIsAlsoValid);\n' +
             'something();\n' +
@@ -705,22 +705,22 @@ describe('Mockium hooks', () => {
             'anotherThing(res);\n' +
             'test.something.else();\n'
         )
-        expect(mockium.getReport().has({ path: 'sample.value', value: { literal: 'hello!' } })).to.be.true
-        expect(mockium.getReport().has({ path: 'undefinedIsAlsoValid', value: { literal: undefined } })).to.be.true
-        expect(mockium.getReport().has({ path: 'hookMe', returns: { literal: 33 } })).to.be.true
-        expect(mockium.getReport().has({ path: 'something', returns: { literal: 123 } })).to.be.true
+        expect(fakeium.getReport().has({ path: 'sample.value', value: { literal: 'hello!' } })).to.be.true
+        expect(fakeium.getReport().has({ path: 'undefinedIsAlsoValid', value: { literal: undefined } })).to.be.true
+        expect(fakeium.getReport().has({ path: 'hookMe', returns: { literal: 33 } })).to.be.true
+        expect(fakeium.getReport().has({ path: 'something', returns: { literal: 123 } })).to.be.true
         expect(somethingGotCalled).to.be.true
-        expect(mockium.getReport().has({ type: 'CallEvent', path: 'another.reference[0].to.somewhere.else' })).to.be.true
-        mockium.dispose()
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'another.reference[0].to.somewhere.else' })).to.be.true
+        fakeium.dispose()
     })
 
     it('handles writable and non-writable hooks', async () => {
-        const mockium = new Mockium({ logger })
-        mockium.hook('writable', 'a', true)
-        mockium.hook('readOnly', 'a', false)
-        mockium.hook('writableFn', () => 'Y', true)
-        mockium.hook('readOnlyFn', () => 'Y', false)
-        await mockium.run('index.js',
+        const fakeium = new Fakeium({ logger })
+        fakeium.hook('writable', 'a', true)
+        fakeium.hook('readOnly', 'a', false)
+        fakeium.hook('writableFn', () => 'Y', true)
+        fakeium.hook('readOnlyFn', () => 'Y', false)
+        await fakeium.run('index.js',
             'writable += "b";\n' +
             'console.log(`writable is "${writable}"`);\n' +
             'readOnly += "b";\n' +
@@ -734,37 +734,37 @@ describe('Mockium hooks', () => {
         )
 
         // Set events should be logged regardless of writable state
-        expect(mockium.getReport().has({ path: 'writable', value: { literal: 'a' } })).to.be.true
-        expect(mockium.getReport().has({ path: 'writable', value: { literal: 'ab' } })).to.be.true
-        expect(mockium.getReport().has({ path: 'readOnly', value: { literal: 'a' } })).to.be.true
-        expect(mockium.getReport().has({ path: 'readOnly', value: { literal: 'ab' } })).to.be.true
-        expect(mockium.getReport().has({ type: 'SetEvent', path: 'writableFn' })).to.be.true
-        expect(mockium.getReport().has({ type: 'SetEvent', path: 'readOnlyFn' })).to.be.true
+        expect(fakeium.getReport().has({ path: 'writable', value: { literal: 'a' } })).to.be.true
+        expect(fakeium.getReport().has({ path: 'writable', value: { literal: 'ab' } })).to.be.true
+        expect(fakeium.getReport().has({ path: 'readOnly', value: { literal: 'a' } })).to.be.true
+        expect(fakeium.getReport().has({ path: 'readOnly', value: { literal: 'ab' } })).to.be.true
+        expect(fakeium.getReport().has({ type: 'SetEvent', path: 'writableFn' })).to.be.true
+        expect(fakeium.getReport().has({ type: 'SetEvent', path: 'readOnlyFn' })).to.be.true
 
         // But changes should not persisted to read-only paths
-        expect(mockium.getReport().has({ arguments: [ { literal: 'writable is "ab"' } ] })).to.be.true
-        expect(mockium.getReport().has({ arguments: [ { literal: 'readOnly is "a"' } ] })).to.be.true
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({ arguments: [ { literal: 'writable is "ab"' } ] })).to.be.true
+        expect(fakeium.getReport().has({ arguments: [ { literal: 'readOnly is "a"' } ] })).to.be.true
+        expect(fakeium.getReport().has({
             path: 'writableFn',
             returns: { literal: 'Y' },
             location: { line: 5 },
         })).to.be.true
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             path: 'writableFn',
             returns: { literal: 'Z' },
             location: { line: 7 },
         })).to.be.true
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             path: 'readOnlyFn',
             returns: { literal: 'Y' },
             location: { line: 8 },
         })).to.be.true
-        expect(mockium.getReport().has({
+        expect(fakeium.getReport().has({
             path: 'readOnlyFn',
             returns: { literal: 'Y' },
             location: { line: 10 },
         })).to.be.true
 
-        mockium.dispose()
+        fakeium.dispose()
     })
 })

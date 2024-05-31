@@ -1,8 +1,8 @@
 {
-    "name": "mockium",
+    "name": "fakeium",
     "version": "0.0.1",
     "author": "José Miguel Moreno <josemmo@pm.me>",
-    "homepage": "https://github.com/josemmo/mockium",
+    "homepage": "https://github.com/josemmo/fakeium",
     "license": "MIT",
     "type": "module",
     "main": "dist/index.js",

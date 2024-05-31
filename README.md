@@ -1,11 +1,11 @@
-<p align="center"><a href="https://github.com/josemmo/mockium"><img src="logo.png" alt="Mockium" width="400"></a></p>
+<p align="center"><a href="https://github.com/josemmo/fakeium"><img src="logo.png" alt="Fakeium" width="400"></a></p>
 <p align="center">
-    <a href="https://github.com/josemmo/mockium/actions"><img src="https://github.com/josemmo/mockium/actions/workflows/tests.yml/badge.svg"></a>
-    <a href="https://github.com/josemmo/mockium"><img src="https://tokei.rs/b1/github/josemmo/mockium?style=flat"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/josemmo/mockium.svg"></a>
+    <a href="https://github.com/josemmo/fakeium/actions"><img src="https://github.com/josemmo/fakeium/actions/workflows/tests.yml/badge.svg"></a>
+    <a href="https://github.com/josemmo/fakeium"><img src="https://tokei.rs/b1/github/josemmo/fakeium?style=flat"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/josemmo/fakeium.svg"></a>
 </p>
 
-Mockium (a play on the words *Mock* and *Chromium*) is a lightweight, V8-based sandbox for the dynamic execution of
+Fakeium (a play on the words *Fake* and *Chromium*) is a lightweight, V8-based sandbox for the dynamic execution of
 untrusted JavaScript code.
 It aims to improve traditional static analysis by detecting API calls coming from `eval`, `new Function` and heavily
 obfuscated code, and does so with a tiny footprint in terms of both memory and CPU usage.
@@ -15,7 +15,7 @@ instrumented Chromium browser instance and wait about 10 minutes between runs, i
 code in mere **seconds**.
 
 ## Features
-Mockium works by mocking all objects accessed by the executed code at runtime, while logging get, set and call events.
+Fakeium works by mocking all objects accessed by the executed code at runtime, while logging get, set and call events.
 It automatically runs all callback functions found inside the sandbox to increase execution coverage.
 
 It has built-in support for:
@@ -29,20 +29,20 @@ It has built-in support for:
 - 🔎 Report events querying
 
 ## FAQ
-**Who is Mockium intended for?**\
-Mockium is aimed at security researchers who want to determine the behavior of a JavaScript application, browser
+**Who is Fakeium intended for?**\
+Fakeium is aimed at security researchers who want to determine the behavior of a JavaScript application, browser
 extension, website, etc.
 For example, it can be used to detect calls to privacy sensitive APIs or fingerprinting attempts.
 
-**Why use Mockium instead of Chromium with Playwright/Puppeteer/Selenium?**\
+**Why use Fakeium instead of Chromium with Playwright/Puppeteer/Selenium?**\
 When running experiments at scale, it is not always possible to use traditional dynamic analysis due to time and
 resource constraints.
 In addition, finding good inputs that trigger a sample's malicious code path typically requires manual effort and is not
 always possible.
-Mockium is a good alternative when you hit any of these limitations.
+Fakeium is a good alternative when you hit any of these limitations.
 
-**Why use Mockium instead of static analysis?**\
-Mockium does not try to replace traditional static analysis with tools like Babel or Esprima.
+**Why use Fakeium instead of static analysis?**\
+Fakeium does not try to replace traditional static analysis with tools like Babel or Esprima.
 Instead, it complements it by increasing analysis coverage through the detection of API calls that would otherwise go
 undetected.
 
@@ -52,12 +52,12 @@ undetected.
 - Node.js 20 (LTS)
 
 ### Examples
-The easiest way to run code with Mockium is to create an instance and call the `Mockium.run()` method:
+The easiest way to run code with Fakeium is to create an instance and call the `Fakeium.run()` method:
 
 ```js
-const mockium = new Mockium();
-await mockium.run('example.js', 'alert("Hi there!")');
-console.log(mockium.getReport().getAll());
+const fakeium = new Fakeium();
+await fakeium.run('example.js', 'alert("Hi there!")');
+console.log(fakeium.getReport().getAll());
 /*
 [
     {
@@ -80,8 +80,8 @@ console.log(mockium.getReport().getAll());
 
 You can also run apps that span several modules by providing a resolver:
 ```js
-const mockium = new Mockium({ origin: 'https://localhost' });
-mockium.setResolver(async url => {
+const fakeium = new Fakeium({ origin: 'https://localhost' });
+fakeium.setResolver(async url => {
     if (url.href === 'https://localhost/index.js') {
         return 'import { test } from "./test.js";\n' +
                'console.log("Test is " + test());\n';
@@ -91,8 +91,8 @@ mockium.setResolver(async url => {
     }
     return null;
 });
-await mockium.run('index.js');
-console.log(mockium.getReport().find({ type: 'CallEvent', path: 'console.log' }));
+await fakeium.run('index.js');
+console.log(fakeium.getReport().find({ type: 'CallEvent', path: 'console.log' }));
 /*
 {
     type: 'CallEvent',

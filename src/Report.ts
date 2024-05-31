@@ -48,7 +48,7 @@ type MappedOmit<T, K extends PropertyKey> = { [P in keyof T as Exclude<P, K>]: T
 type Query = Partial<MappedOmit<ReportEvent, 'location'>> & { location?: Partial<Location> }
 
 /**
- * Helper class for storing and traversing events reported by Mockium.
+ * Helper class for storing and traversing events reported by Fakeium.
  */
 export class Report {
     private readonly events: ReportEvent[] = []

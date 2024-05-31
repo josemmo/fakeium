@@ -13,7 +13,7 @@ import { LoggerInterface } from './logger'
 import { Report, ReportEvent } from './Report'
 import ivm from 'isolated-vm'
 
-interface MockiumInstanceOptions {
+interface FakeiumInstanceOptions {
     /** Type of sources to run (defaults to "script") */
     sourceType?: 'script' | 'module'
     /** Origin to use when resolving relative specifiers (defaults to "file:///") */
@@ -26,7 +26,7 @@ interface MockiumInstanceOptions {
     logger?: LoggerInterface | null
 }
 
-interface MockiumRunOptions {
+interface FakeiumRunOptions {
     /** Type of source for this particular run */
     sourceType?: 'script' | 'module'
     /** Maximum execution time in milliseconds just for this source */
@@ -48,14 +48,14 @@ const PATH_PATTERN = /^[a-z_$][a-z0-9_$]*(\.[a-z_$][a-z0-9_$]*|\[".+?"\]|\['.+?'
 const BOOTSTRAP_CODE = readFileSync(new URL('bootstrap.js', import.meta.url), 'utf-8')
 
 /**
- * Mockium (from "mock" and "Chromium") is a simple yet *safe* instrumented environment for running
+ * Fakeium (from "Fake" and "Chromium") is a simple yet *safe* instrumented environment for running
  * untrusted JavaScript code that was intended to be run in a web browser.
  *
  * Rather than replacing dynamic analysis, its main goal is to complement static analysis by detecting
  * API calls that would otherwise be missed using traditional AST parsing.
  */
-export class Mockium {
-    private readonly options: Required<MockiumInstanceOptions>
+export class Fakeium {
+    private readonly options: Required<FakeiumInstanceOptions>
     private resolver: SourceResolver = async () => null
     private hooks = new Map<string, Hook>()
     private isolate: ivm.Isolate | null = null
@@ -67,7 +67,7 @@ export class Mockium {
     /**
      * @param options Instance-wide options
      */
-    public constructor(options: MockiumInstanceOptions = {}) {
+    public constructor(options: FakeiumInstanceOptions = {}) {
         this.options = {
             sourceType: 'script',
             origin: 'file:///',
@@ -170,7 +170,7 @@ export class Mockium {
      * @throws {SourceNotFoundError} if failed to resolve specifier or imports
      * @throws {TimeoutError} if exceeded max execution time
      */
-    public async run(specifier: string, options?: MockiumRunOptions): Promise<void>
+    public async run(specifier: string, options?: FakeiumRunOptions): Promise<void>
 
     /**
      * Run source in sandbox
@@ -183,10 +183,10 @@ export class Mockium {
      * @throws {SourceNotFoundError} if failed to resolve imports
      * @throws {TimeoutError} if exceeded max execution time
      */
-    public async run(specifier: string, sourceCode: SourceCode, options?: MockiumRunOptions): Promise<void>
-    public async run(specifier: string, b?: MockiumRunOptions | SourceCode, c?: MockiumRunOptions): Promise<void> {
+    public async run(specifier: string, sourceCode: SourceCode, options?: FakeiumRunOptions): Promise<void>
+    public async run(specifier: string, b?: FakeiumRunOptions | SourceCode, c?: FakeiumRunOptions): Promise<void> {
         let sourceCode: SourceCode | undefined = undefined
-        let options: MockiumRunOptions
+        let options: FakeiumRunOptions
         if (typeof b === 'string' || b instanceof Buffer) {
             sourceCode = b
             options = c || {}
@@ -270,7 +270,7 @@ export class Mockium {
      * Dispose instance
      *
      * Frees from memory any resources used by this instance.
-     * You should call this method after working with Mockium to avoid any memory leaks.
+     * You should call this method after working with Fakeium to avoid any memory leaks.
      * It *is* safe to reuse the instance after disposing.
      *
      * @param clearReport Whether to clear report as well
