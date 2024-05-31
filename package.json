@@ -7,6 +7,7 @@
     "type": "module",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
+    "files": ["dist"],
     "scripts": {
         "lint": "tsc --noEmit && eslint .",
         "build": "pkgroll --clean-dist && tsx after-build.ts",
