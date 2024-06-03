@@ -1,6 +1,7 @@
 <p align="center"><a href="https://github.com/josemmo/fakeium"><img src="logo.png" alt="Fakeium" width="400"></a></p>
 <p align="center">
     <a href="https://github.com/josemmo/fakeium/actions"><img src="https://github.com/josemmo/fakeium/actions/workflows/tests.yml/badge.svg"></a>
+    <a href="https://www.npmjs.com/package/fakeium"><img src="https://img.shields.io/npm/v/fakeium"></a>
     <a href="https://github.com/josemmo/fakeium"><img src="https://tokei.rs/b1/github/josemmo/fakeium?style=flat"></a>
     <a href="LICENSE"><img src="https://img.shields.io/github/license/josemmo/fakeium.svg"></a>
 </p>
@@ -51,14 +52,33 @@ undetected.
 ### Requirements
 - Node.js 20 (LTS)
 
+## How To Install
+```sh
+# Using npm
+npm install fakeium
+
+# Using Yarn
+yarn add fakeium
+```
+
 ### Examples
 The easiest way to run code with Fakeium is to create an instance and call the `Fakeium.run()` method:
 
 ```js
-const fakeium = new Fakeium();
-await fakeium.run('example.js', 'alert("Hi there!")');
-console.log(fakeium.getReport().getAll());
-/*
+import { Fakeium } from 'fakeium';
+
+(async () => {
+    const fakeium = new Fakeium();
+    await fakeium.run('example.js', 'alert("Hi there!")');
+
+    // Print all logged events
+    const events = fakeium.getReport().getAll();
+    console.dir(events, { depth: 4 });
+})();
+```
+
+This simple script will produce this console output:
+```js
 [
     {
         type: 'GetEvent',
@@ -75,25 +95,34 @@ console.log(fakeium.getReport().getAll());
         location: { filename: 'file:///example.js', line: 1, column: 1 }
     }
 ]
-*/
 ```
 
 You can also run apps that span several modules by providing a resolver:
 ```js
-const fakeium = new Fakeium({ origin: 'https://localhost' });
-fakeium.setResolver(async url => {
-    if (url.href === 'https://localhost/index.js') {
-        return 'import { test } from "./test.js";\n' +
-               'console.log("Test is " + test());\n';
-    }
-    if (url.pathname === '/test.js') {
-        return 'export const test = () => 123';
-    }
-    return null;
-});
-await fakeium.run('index.js');
-console.log(fakeium.getReport().find({ type: 'CallEvent', path: 'console.log' }));
-/*
+import { Fakeium } from 'fakeium';
+
+(async () => {
+    const fakeium = new Fakeium({ sourceType: 'module', origin: 'https://localhost' });
+    fakeium.setResolver(async url => {
+        if (url.href === 'https://localhost/index.js') {
+            return 'import { test } from "./test.js";\n' +
+                'console.log("Test is " + test());\n';
+        }
+        if (url.pathname === '/test.js') {
+            return 'export const test = () => 123';
+        }
+        return null;
+    });
+    await fakeium.run('index.js');
+
+    // Print a particular event
+    const logEvent = fakeium.getReport().find({ type: 'CallEvent', path: 'console.log' });
+    console.dir(logEvent, { depth: 4 });
+})();
+```
+
+This will produce the following output:
+```js
 {
     type: 'CallEvent',
     path: 'console.log',
@@ -102,5 +131,4 @@ console.log(fakeium.getReport().find({ type: 'CallEvent', path: 'console.log' })
     isConstructor: false,
     location: { filename: 'https://localhost/index.js', line: 2, column: 9 }
 }
-*/
 ```
