@@ -300,6 +300,28 @@ describe('Fakeium sandbox', () => {
         expect(fakeium.getReport().size()).to.equal(0)
     })
 
+    it('does not produce extra Object.length on scripts', async() => {
+        const fakeium = new Fakeium({ logger })
+        await fakeium.run('index.js', 'alert("hello")')
+        expect(fakeium.getReport().getAll()).to.be.deep.equal([
+            {
+                type: 'GetEvent',
+                path: 'alert',
+                value: { ref: 1 },
+                location: { filename: 'file:///index.js', line: 1, column: 1 },
+            },
+            {
+                type: 'CallEvent',
+                path: 'alert',
+                arguments: [ { literal: 'hello' } ],
+                returns: { ref: 2 },
+                isConstructor: false,
+                location: { filename: 'file:///index.js', line: 1, column: 1 },
+            },
+        ])
+        fakeium.dispose()
+    })
+
     it('logs thenable function calls', async () => {
         const fakeium = new Fakeium({ logger })
         await fakeium.run('index.js',

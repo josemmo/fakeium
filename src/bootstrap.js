@@ -103,7 +103,7 @@ function resolvePath(parentPath, property) {
 
 /**
  * Get current location
- * @return {Location} Location
+ * @return {Location|null} Location or `null` if failed to extract
  */
 function getCurrentLocation() {
     // Get stack
@@ -131,11 +131,7 @@ function getCurrentLocation() {
     }
 
     // Failed to extract location
-    return {
-        filename: '<unknown>',
-        line: 1,
-        column: 1,
-    }
+    return null
 }
 
 /**
@@ -178,12 +174,17 @@ function toEventValue(value) {
  * @param {any}                   value Value being read/written
  */
 function onGetOrSetEvent(type, path, value) {
+    const location = getCurrentLocation()
+    if (location === null) {
+        emitDebug(`Ignored ${type} with unknown location for "${path}"`)
+        return
+    }
     emitDebug(`${type === 'GetEvent' ? 'Got' : 'Set'} ${path}`)
     emitEvent({
         type,
         path,
         value: toEventValue(value),
-        location: getCurrentLocation(),
+        location,
     })
 }
 
