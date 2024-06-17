@@ -52,7 +52,7 @@ undetected.
 ### Requirements
 - Node.js 20 (LTS)
 
-## How To Install
+### How To Install
 ```sh
 # Using npm
 npm install fakeium
