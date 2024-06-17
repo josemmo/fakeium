@@ -608,6 +608,24 @@ describe('Fakeium sandbox', () => {
         fakeium.dispose()
     })
 
+    it('shares global scope in modules', async () => {
+        const fakeium = new Fakeium({ logger, sourceType: 'module' })
+        fakeium.setResolver(async url => {
+            if (url.pathname === '/index.js') {
+                return 'import "./other-module.js";\n' +
+                       'if (globalThis.test !== 123) {\n' +
+                       '    throw new Error("Global scope is not being shared");\n' +
+                       '}\n'
+            }
+            if (url.pathname === '/other-module.js') {
+                return 'globalThis.test = 123;\n'
+            }
+            return null
+        })
+        await fakeium.run('index.js')
+        fakeium.dispose()
+    })
+
     it('does not SIGSEGV', async () => {
         const fakeium = new Fakeium({ logger })
         await fakeium.run('index.js',
@@ -650,6 +668,22 @@ describe('Fakeium hooks', () => {
         expect(() => fakeium.hook('something', Symbol('test'))).to.throw(InvalidValueError)
         fakeium.dispose()
     })
+
+    it('throws an error on timeout caused by a hook', async () => {
+        const fakeium = new Fakeium({ logger, timeout: 200 })
+        fakeium.hook('test', () => {
+            return new Promise(resolve => setTimeout(resolve, 1000))
+        })
+        for (const sourceType of ['script', 'module'] as const) {
+            try {
+                await fakeium.run('index.js', 'test()', { sourceType })
+                assert.fail('Fakeium#run() did not throw any error')
+            } catch (e) {
+                expect(e).to.be.an.instanceOf(TimeoutError)
+            }
+        }
+        fakeium.dispose()
+    }).timeout(2000)
 
     it('aliases window and other objects to globalThis by default', async () => {
         const fakeium = new Fakeium({ logger })
