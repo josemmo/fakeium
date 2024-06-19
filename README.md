@@ -2,7 +2,7 @@
 <p align="center">
     <a href="https://github.com/josemmo/fakeium/actions"><img src="https://github.com/josemmo/fakeium/actions/workflows/tests.yml/badge.svg"></a>
     <a href="https://www.npmjs.com/package/fakeium"><img src="https://img.shields.io/npm/v/fakeium"></a>
-    <a href="https://github.com/josemmo/fakeium"><img src="https://tokei.rs/b1/github/josemmo/fakeium?style=flat"></a>
+    <a href="https://github.com/boyter/scc"><img src="https://sloc.xyz/github/josemmo/fakeium"></a>
     <a href="LICENSE"><img src="https://img.shields.io/github/license/josemmo/fakeium.svg"></a>
 </p>
 

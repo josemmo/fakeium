@@ -1,0 +1,7 @@
+# Ignore file for line counters such as:
+# - https://github.com/boyter/scc
+# - https://github.com/XAMPPRocky/tokei
+*.json
+*.md
+*.txt
+*.yml
