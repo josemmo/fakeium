@@ -226,7 +226,11 @@ function onCallEvent(path, argArray, returns, isConstructor) {
  * @return {boolean}        Whether object is mock
  */
 function isMock(object) {
-    return (object[MockSymbol] === MockSymbol)
+    try {
+        return (object[MockSymbol] === MockSymbol)
+    } catch (_) {
+        return false
+    }
 }
 
 /**

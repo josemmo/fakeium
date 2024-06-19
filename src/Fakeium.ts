@@ -93,7 +93,7 @@ export class Fakeium {
         this.hook('chrome', new Reference('browser'))
 
         // Prevent mocking AMD module loaders
-        for (const path of ['define', 'exports', 'require']) {
+        for (const path of ['define', 'exports', 'module', 'require']) {
             this.hook(path, undefined)
         }
     }

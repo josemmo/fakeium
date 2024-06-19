@@ -9,6 +9,13 @@ const DATA_DIR = dirname(fileURLToPath(import.meta.url)) + '/data'
 const logger = (process.env.LOG_LEVEL === 'debug') ? new DefaultLogger() : null
 
 describe('Integration', () => {
+    it('aight.js', async () => {
+        const fakeium = new Fakeium({ logger })
+        await fakeium.run('aight.js', readFileSync(`${DATA_DIR}/aight.txt`))
+        expect(fakeium.getReport().has({ type: 'SetEvent', path: 'returnExports' })).to.be.true
+        fakeium.dispose()
+    })
+
     it('jquery.js', async () => {
         const fakeium = new Fakeium({ logger })
         await fakeium.run('jquery.js', readFileSync(`${DATA_DIR}/jquery.txt`))
