@@ -11,7 +11,9 @@
     "type": "module",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
-    "files": ["dist"],
+    "files": [
+        "dist"
+    ],
     "scripts": {
         "lint": "tsc --noEmit && eslint .",
         "build": "pkgroll --clean-dist && tsx after-build.ts",
@@ -31,6 +33,6 @@
         "pkgroll": "^2.1.1",
         "tsx": "^4.15.6",
         "typescript": "^5.4.5",
-        "typescript-eslint": "^7.13.0"
+        "typescript-eslint": "^7.13.1"
     }
 }
