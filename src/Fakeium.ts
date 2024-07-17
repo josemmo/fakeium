@@ -33,6 +33,19 @@ interface FakeiumRunOptions {
     timeout?: number
 }
 
+interface FakeiumStats {
+    /** Time the sandbox has spent actively doing work on the CPU, in nanoseconds */
+    cpuTime: bigint
+    /** Time the sandbox has been running, including passive time, in nanoseconds */
+    wallTime: bigint
+    totalHeapSize: number
+    totalHeapSizeExecutable: number
+    totalPhysicalSize: number
+    mallocedMemory: number
+    peakMallocedMemory: number
+    externallyAllocatedSize: number
+}
+
 type SourceCode = Buffer | string
 
 /**
@@ -62,6 +75,16 @@ export class Fakeium {
     private readonly pathToModule = new Map<string, ivm.Module>()
     private readonly moduleToPath = new Map<ivm.Module, string>()
     private readonly report = new Report()
+    private readonly stats: FakeiumStats = {
+        cpuTime: 0n,
+        wallTime: 0n,
+        totalHeapSize: 0,
+        totalHeapSizeExecutable: 0,
+        totalPhysicalSize: 0,
+        mallocedMemory: 0,
+        peakMallocedMemory: 0,
+        externallyAllocatedSize: 0,
+    }
     private nextValueId = 1
 
     /**
@@ -222,6 +245,7 @@ export class Fakeium {
         const hardTimeout = setTimeout(() => {
             this.options.logger?.warn('Script refused to stop, terminating it')
             didTimeout = true
+            this.recordStats()
             this.dispose(false)
         }, timeout+150)
 
@@ -250,6 +274,9 @@ export class Fakeium {
             }
         } finally {
             clearTimeout(hardTimeout)
+            if (this.isolate !== null) {
+                this.recordStats()
+            }
             context.release()
         }
 
@@ -265,6 +292,14 @@ export class Fakeium {
      */
     public getReport() {
         return this.report
+    }
+
+    /**
+     * Get stats
+     * @return Cumulative summary of stats
+     */
+    public getStats() {
+        return { ...this.stats }
     }
 
     /**
@@ -296,6 +331,16 @@ export class Fakeium {
             this.report.clear()
             this.nextValueId = 1
         }
+
+        // Clear stats
+        this.stats.cpuTime = 0n
+        this.stats.wallTime = 0n
+        this.stats.totalHeapSize = 0
+        this.stats.totalHeapSizeExecutable = 0
+        this.stats.totalPhysicalSize = 0
+        this.stats.mallocedMemory = 0
+        this.stats.peakMallocedMemory = 0
+        this.stats.externallyAllocatedSize = 0
     }
 
     /**
@@ -328,7 +373,7 @@ export class Fakeium {
             }
         }
         if (this.isolate === null) {
-            throw new ReferenceError('Illegal instance state: missing isolate')
+            throw new ReferenceError('Illegal state: missing isolate when getting script')
         }
         let script: ivm.Script
         try {
@@ -417,5 +462,24 @@ export class Fakeium {
                 },
             },
         )
+    }
+
+    /**
+     * Record stats
+     * @param isolate Isolate instance
+     */
+    private recordStats() {
+        if (this.isolate === null) {
+            throw new ReferenceError('Illegal state: missing isolate when recording stats')
+        }
+        const heap = this.isolate.getHeapStatisticsSync()
+        this.stats.cpuTime += this.isolate.cpuTime
+        this.stats.wallTime += this.isolate.wallTime
+        this.stats.totalHeapSize += heap.total_heap_size
+        this.stats.totalHeapSizeExecutable += heap.total_heap_size_executable
+        this.stats.totalPhysicalSize += heap.total_physical_size
+        this.stats.mallocedMemory += heap.malloced_memory
+        this.stats.peakMallocedMemory = Math.max(this.stats.peakMallocedMemory, heap.peak_malloced_memory)
+        this.stats.externallyAllocatedSize += heap.externally_allocated_size
     }
 }

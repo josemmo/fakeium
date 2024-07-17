@@ -160,15 +160,62 @@ describe('Fakeium', () => {
                      'while (true) {\n' +
                      '    garbage.push("abcdefghijklmnopqrstuvwxyz".repeat(1024));\n' +
                      '}\n'
+        const beforeStats = fakeium.getStats()
         try {
             await fakeium.run('crash.js', code)
         } catch (e) {
             expect(e).to.be.an.instanceOf(MemoryLimitError)
             return
         } finally {
+            expect(beforeStats).to.deep.equal(fakeium.getStats()) // No stats are recorded after a crash
             fakeium.dispose()
         }
         assert.fail('Fakeium#run() did not throw any error')
+    })
+
+    it('records stats', async () => {
+        const fakeium = new Fakeium({ logger })
+        expect(fakeium.getStats()).to.be.deep.equal({
+            cpuTime: 0n,
+            wallTime: 0n,
+            totalHeapSize: 0,
+            totalHeapSizeExecutable: 0,
+            totalPhysicalSize: 0,
+            mallocedMemory: 0,
+            peakMallocedMemory: 0,
+            externallyAllocatedSize: 0,
+        })
+
+        // Stats are recorded after running sources
+        await fakeium.run('first.js', 'for (let i=0; i<1000; i++) "abc".repeat(100)')
+        const firstStats = fakeium.getStats()
+        expect(Number(firstStats.cpuTime)).to.be.greaterThan(100_000)
+        expect(Number(firstStats.wallTime)).to.be.greaterThan(50_000)
+        expect(firstStats.totalHeapSize).to.be.greaterThan(500_000)
+
+        // Stats are cumulative
+        await fakeium.run('second.js', 'let i = 0; while (i < 1_000_000) i++;')
+        const secondStats = fakeium.getStats()
+        expect(Number(secondStats.cpuTime)).to.be.greaterThan(Number(firstStats.cpuTime))
+        expect(Number(secondStats.wallTime)).to.be.greaterThan(Number(firstStats.wallTime))
+        expect(secondStats.totalHeapSize).to.be.greaterThan(firstStats.totalHeapSize)
+        expect(secondStats.totalHeapSizeExecutable).to.be.greaterThan(firstStats.totalHeapSizeExecutable)
+        expect(secondStats.totalPhysicalSize).to.be.greaterThan(firstStats.totalPhysicalSize)
+        expect(secondStats.mallocedMemory).to.be.greaterThanOrEqual(firstStats.mallocedMemory)
+        expect(secondStats.externallyAllocatedSize).to.be.greaterThanOrEqual(firstStats.externallyAllocatedSize)
+
+        // Stats must be reset after dispose
+        fakeium.dispose()
+        expect(fakeium.getStats()).to.be.deep.equal({
+            cpuTime: 0n,
+            wallTime: 0n,
+            totalHeapSize: 0,
+            totalHeapSizeExecutable: 0,
+            totalPhysicalSize: 0,
+            mallocedMemory: 0,
+            peakMallocedMemory: 0,
+            externallyAllocatedSize: 0,
+        })
     })
 })
 
@@ -674,6 +721,7 @@ describe('Fakeium hooks', () => {
         fakeium.hook('test', () => {
             return new Promise(resolve => setTimeout(resolve, 1000))
         })
+        const beforeStats = fakeium.getStats()
         for (const sourceType of ['script', 'module'] as const) {
             try {
                 await fakeium.run('index.js', 'test()', { sourceType })
@@ -681,6 +729,7 @@ describe('Fakeium hooks', () => {
             } catch (e) {
                 expect(e).to.be.an.instanceOf(TimeoutError)
             }
+            expect(beforeStats).to.deep.equal(fakeium.getStats()) // No stats are recorded after a timeout
         }
         fakeium.dispose()
     }).timeout(2000)
