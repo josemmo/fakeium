@@ -243,6 +243,7 @@ export class Fakeium {
                 // Skip throwing an error here as it's most surely caused by a forced timeout
                 this.options.logger?.debug('Forcedly disposed instance to terminate script')
             } else if (e.message === 'Isolate was disposed during execution due to memory limit') {
+                this.dispose(false)
                 throw new MemoryLimitError(`Exceeded ${this.options.maxMemory}MiB memory limit`)
             } else {
                 throw new ExecutionError('Uncaught error raised in sandbox', e)
