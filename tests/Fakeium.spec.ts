@@ -8,11 +8,18 @@ import {
     SourceNotFoundError,
     TimeoutError,
 } from '../src/errors'
-import { Fakeium } from '../src/Fakeium'
+import { Fakeium, FakeiumStats } from '../src/Fakeium'
 import { Reference } from '../src/hooks'
 import { DefaultLogger } from '../src/logger'
 
 const logger = (process.env.LOG_LEVEL === 'debug') ? new DefaultLogger() : null
+
+function expectNonEmptyStats(stats: FakeiumStats): void {
+    expect(Number(stats.cpuTime)).to.be.greaterThan(100_000)
+    expect(Number(stats.wallTime)).to.be.greaterThan(50_000)
+    expect(stats.totalHeapSize).to.be.greaterThan(500_000)
+    expect(stats.usedHeapSize).to.be.greaterThan(500_000)
+}
 
 describe('Fakeium', () => {
     it('initializes and disposes', async () => {
@@ -154,7 +161,7 @@ describe('Fakeium', () => {
         fakeium.dispose()
     }).timeout(3000)
 
-    it('throw an error on memory exhaustion', async () => {
+    it('throws an error on memory exhaustion', async () => {
         const fakeium = new Fakeium({ logger, maxMemory: 8 })
         const code = 'const garbage = [];\n' +
                      'while (true) {\n' +
@@ -167,7 +174,7 @@ describe('Fakeium', () => {
             expect(e).to.be.an.instanceOf(MemoryLimitError)
             return
         } finally {
-            expect(beforeStats).to.deep.equal(fakeium.getStats()) // No stats are recorded after a crash
+            expect(beforeStats).to.deep.equal(fakeium.getStats()) // No stats are recorded after memory limit
             fakeium.dispose()
         }
         assert.fail('Fakeium#run() did not throw any error')
@@ -181,6 +188,7 @@ describe('Fakeium', () => {
             totalHeapSize: 0,
             totalHeapSizeExecutable: 0,
             totalPhysicalSize: 0,
+            usedHeapSize: 0,
             mallocedMemory: 0,
             peakMallocedMemory: 0,
             externallyAllocatedSize: 0,
@@ -189,9 +197,7 @@ describe('Fakeium', () => {
         // Stats are recorded after running sources
         await fakeium.run('first.js', 'for (let i=0; i<1000; i++) "abc".repeat(100)')
         const firstStats = fakeium.getStats()
-        expect(Number(firstStats.cpuTime)).to.be.greaterThan(100_000)
-        expect(Number(firstStats.wallTime)).to.be.greaterThan(50_000)
-        expect(firstStats.totalHeapSize).to.be.greaterThan(500_000)
+        expectNonEmptyStats(firstStats)
 
         // Stats are cumulative
         await fakeium.run('second.js', 'let i = 0; while (i < 1_000_000) i++;')
@@ -201,6 +207,7 @@ describe('Fakeium', () => {
         expect(secondStats.totalHeapSize).to.be.greaterThan(firstStats.totalHeapSize)
         expect(secondStats.totalHeapSizeExecutable).to.be.greaterThan(firstStats.totalHeapSizeExecutable)
         expect(secondStats.totalPhysicalSize).to.be.greaterThan(firstStats.totalPhysicalSize)
+        expect(secondStats.usedHeapSize).to.be.greaterThan(firstStats.usedHeapSize)
         expect(secondStats.mallocedMemory).to.be.greaterThanOrEqual(firstStats.mallocedMemory)
         expect(secondStats.externallyAllocatedSize).to.be.greaterThanOrEqual(firstStats.externallyAllocatedSize)
 
@@ -212,6 +219,7 @@ describe('Fakeium', () => {
             totalHeapSize: 0,
             totalHeapSizeExecutable: 0,
             totalPhysicalSize: 0,
+            usedHeapSize: 0,
             mallocedMemory: 0,
             peakMallocedMemory: 0,
             externallyAllocatedSize: 0,
@@ -721,7 +729,6 @@ describe('Fakeium hooks', () => {
         fakeium.hook('test', () => {
             return new Promise(resolve => setTimeout(resolve, 1000))
         })
-        const beforeStats = fakeium.getStats()
         for (const sourceType of ['script', 'module'] as const) {
             try {
                 await fakeium.run('index.js', 'test()', { sourceType })
@@ -729,9 +736,9 @@ describe('Fakeium hooks', () => {
             } catch (e) {
                 expect(e).to.be.an.instanceOf(TimeoutError)
             }
-            expect(beforeStats).to.deep.equal(fakeium.getStats()) // No stats are recorded after a timeout
+            expectNonEmptyStats(fakeium.getStats())
+            fakeium.dispose()
         }
-        fakeium.dispose()
     }).timeout(2000)
 
     it('aliases window and other objects to globalThis by default', async () => {

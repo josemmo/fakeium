@@ -33,7 +33,7 @@ interface FakeiumRunOptions {
     timeout?: number
 }
 
-interface FakeiumStats {
+export interface FakeiumStats {
     /** Time the sandbox has spent actively doing work on the CPU, in nanoseconds */
     cpuTime: bigint
     /** Time the sandbox has been running, including passive time, in nanoseconds */
@@ -41,6 +41,7 @@ interface FakeiumStats {
     totalHeapSize: number
     totalHeapSizeExecutable: number
     totalPhysicalSize: number
+    usedHeapSize: number
     mallocedMemory: number
     peakMallocedMemory: number
     externallyAllocatedSize: number
@@ -81,6 +82,7 @@ export class Fakeium {
         totalHeapSize: 0,
         totalHeapSizeExecutable: 0,
         totalPhysicalSize: 0,
+        usedHeapSize: 0,
         mallocedMemory: 0,
         peakMallocedMemory: 0,
         externallyAllocatedSize: 0,
@@ -267,7 +269,7 @@ export class Fakeium {
                 // Skip throwing an error here as it's most surely caused by a forced timeout
                 this.options.logger?.debug('Forcedly disposed instance to terminate script')
             } else if (e.message === 'Isolate was disposed during execution due to memory limit') {
-                this.dispose(false)
+                this.dispose(false) // Account for isolated-vm disposing isolate on memory limit
                 throw new MemoryLimitError(`Exceeded ${this.options.maxMemory}MiB memory limit`)
             } else {
                 throw new ExecutionError('Uncaught error raised in sandbox', e)
@@ -333,14 +335,17 @@ export class Fakeium {
         }
 
         // Clear stats
-        this.stats.cpuTime = 0n
-        this.stats.wallTime = 0n
-        this.stats.totalHeapSize = 0
-        this.stats.totalHeapSizeExecutable = 0
-        this.stats.totalPhysicalSize = 0
-        this.stats.mallocedMemory = 0
-        this.stats.peakMallocedMemory = 0
-        this.stats.externallyAllocatedSize = 0
+        if (clearReport) {
+            this.stats.cpuTime = 0n
+            this.stats.wallTime = 0n
+            this.stats.totalHeapSize = 0
+            this.stats.totalHeapSizeExecutable = 0
+            this.stats.totalPhysicalSize = 0
+            this.stats.usedHeapSize = 0
+            this.stats.mallocedMemory = 0
+            this.stats.peakMallocedMemory = 0
+            this.stats.externallyAllocatedSize = 0
+        }
     }
 
     /**
@@ -478,6 +483,7 @@ export class Fakeium {
         this.stats.totalHeapSize += heap.total_heap_size
         this.stats.totalHeapSizeExecutable += heap.total_heap_size_executable
         this.stats.totalPhysicalSize += heap.total_physical_size
+        this.stats.usedHeapSize += heap.used_heap_size
         this.stats.mallocedMemory += heap.malloced_memory
         this.stats.peakMallocedMemory = Math.max(this.stats.peakMallocedMemory, heap.peak_malloced_memory)
         this.stats.externallyAllocatedSize += heap.externally_allocated_size
