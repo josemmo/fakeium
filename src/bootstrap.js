@@ -282,7 +282,7 @@ function createMock(path, template, thisArg) {
             }
 
             // Handle ignored properties
-            if (property === 'prototype' || property === 'apply' || property === 'bind' || property === 'call') {
+            if (property === 'apply' || property === 'bind' || property === 'call') {
                 return target[property]
             }
 
@@ -334,7 +334,7 @@ function createMock(path, template, thisArg) {
             }
 
             // Return value
-            if (!silentPaths.has(subpath)) {
+            if (!subpath.endsWith('.prototype') && !silentPaths.has(subpath)) {
                 onGetOrSetEvent('GetEvent', subpath, target[property])
             }
             return target[property]
