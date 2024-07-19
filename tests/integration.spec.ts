@@ -16,6 +16,20 @@ describe('Integration', () => {
         fakeium.dispose()
     })
 
+    it('asciinema-player.min.js', async () => {
+        const fakeium = new Fakeium({ logger, timeout: 15000 })
+        await fakeium.run('asciinema-player.min.js', readFileSync(`${DATA_DIR}/asciinema-player.min.txt`))
+        expect(fakeium.getReport().has({ type: 'GetEvent', path: 'wrap().shadowRoot' })).to.be.true
+        expect(fakeium.getReport().has({
+            type: 'CallEvent',
+            path: 'document.registerElement',
+            arguments: [
+                { literal: 'asciinema-player' },
+            ],
+        })).to.be.true
+        fakeium.dispose()
+    }).timeout(16000)
+
     it('jquery.js', async () => {
         const fakeium = new Fakeium({ logger })
         await fakeium.run('jquery.js', readFileSync(`${DATA_DIR}/jquery.txt`))
