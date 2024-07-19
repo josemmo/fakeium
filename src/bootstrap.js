@@ -6,6 +6,9 @@ const TRACE_PATTERN = /  at.* \(?(.+):([0-9]+):([0-9]+)\)?$/
 /** Pattern that identifies object properties that do not need to be escaped */
 const SIMPLE_PROPERTY_PATTERN = /^[a-z_$][a-z0-9_$]*$/i
 
+/** Pattern that matches paths that end in ≥3 repeated properties or have ≥8 simple properties total */
+const LOOPED_PATH_PATTERN = /(.+)(\1{2,})$|(\.[a-z0-9_$]+){7,}$/i
+
 /** Symbol to mark objects that are mocks, used to prevent mocking the same object twice */
 const MockSymbol = Symbol(`Mock-${Math.random()}`)
 
@@ -318,8 +321,13 @@ function createMock(path, template, thisArg) {
                     readOnlyPaths.add(subpath)
                 }
             } else if (!exists) {
-                emitDebug(`Mocked "${subpath}" object`)
-                target[property] = createMock(subpath)
+                if (LOOPED_PATH_PATTERN.test(subpath)) {
+                    emitDebug(`Found looped path at "${subpath}", skipped`)
+                    target[property] = undefined
+                } else {
+                    emitDebug(`Mocked "${subpath}" object`)
+                    target[property] = createMock(subpath)
+                }
             } else if (!isLiteral(target[property]) && !isMock(target[property])) {
                 emitDebug(`Patched existing "${subpath}" object`)
                 target[property] = createMock(subpath, target[property], target)
