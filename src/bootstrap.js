@@ -31,9 +31,9 @@ const { Error, JSON, Proxy, Promise, Reflect, Set, eval, isNaN, parseInt } = glo
 //#region Proxies
 
 /**
- * @typedef {import('../Report').Location} Location
- * @typedef {import('../Report').Value} Value
- * @typedef {import('../Report').ReportEvent} ReportEvent
+ * @typedef {import('./Report').Location} Location
+ * @typedef {import('./Report').Value} Value
+ * @typedef {import('./Report').ReportEvent} ReportEvent
  */
 
 /** @type {import('isolated-vm').Reference} */
@@ -66,10 +66,10 @@ function emitDebug(...args) {
 
 //#region Hooks
 
-/** @type {import('isolated-vm').Reference<import('../hooks').Hook[]>} */
+/** @type {import('isolated-vm').Reference<import('./hooks').Hook[]>} */
 const RAW_HOOKS = $3 // eslint-disable-line no-undef
 
-/** @type {Map<string,import('../hooks').Hook>} */
+/** @type {Map<string,import('./hooks').Hook>} */
 const HOOKS = new Map()
 
 for (const item of RAW_HOOKS.copySync()) {
