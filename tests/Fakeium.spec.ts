@@ -879,4 +879,54 @@ describe('Fakeium hooks', () => {
 
         fakeium.dispose()
     })
+
+    it('supports returning non-transferable objects in hooked functions', async () => {
+        let somethingGotCalled = false
+        let fnGotCalled = false
+        const fakeium = new Fakeium({ logger })
+        fakeium.hook('something', (props: { a: number, b: number }) => {
+            somethingGotCalled = true
+            expect(props).to.be.deep.equal({ a: 1, b: 2 })
+            return {
+                a: props.a * 100,
+                b: props.b * 100,
+                c: {
+                    d: 'hello',
+                },
+                fn: () => {
+                    fnGotCalled = true
+                    return 123
+                },
+                nestedFn: () => {
+                    return () => 'hello from nested'
+                },
+            }
+        })
+        await fakeium.run('index.js',
+            '(async () => {\n' +
+            '    const test = something({ a: 1, b: 2 });\n' +
+            '    if (test.a !== 100) {\n' +
+            '        throw new Error("Invalid literal value for test.a");\n' +
+            '    }\n' +
+            '    if (test.b !== 200) {\n' +
+            '        throw new Error("Invalid literal value for test.b");\n' +
+            '    }\n' +
+            '    if (test.c.d !== "hello") {\n' +
+            '        throw new Error("Invalid literal value for test.c.d");\n' +
+            '    }\n' +
+            '    test.fn();\n' +
+            '    const nestedFn = test.nestedFn();\n' +
+            '    if (nestedFn() !== "hello from nested") {\n' +
+            '        throw new Error("Invalid return value for test.nestedFn()()");\n' +
+            '    }\n' +
+            '})();\n'
+        )
+        expect(fakeium.getReport().has({ path: 'something().a', value: { literal: 100 } } )).to.be.true
+        expect(fakeium.getReport().has({ path: 'something().b', value: { literal: 200 } } )).to.be.true
+        expect(fakeium.getReport().has({ path: 'something().c.d', value: { literal: 'hello' } } )).to.be.true
+        expect(fakeium.getReport().has({ path: 'something().fn', returns: { literal: 123 } })).to.be.true
+        expect(somethingGotCalled).to.be.true
+        expect(fnGotCalled).to.be.true
+        fakeium.dispose()
+    })
 })

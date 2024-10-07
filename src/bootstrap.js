@@ -237,6 +237,19 @@ function isMock(object) {
 }
 
 /**
+ * Is external object
+ * @param  {any}     input Input variable
+ * @return {boolean}       Whether input is an external object
+ */
+function isExternalObject(input) {
+    return (
+        typeof input === 'object' &&
+        input.constructor?.name === 'Reference' &&
+        input.typeof !== undefined
+    )
+}
+
+/**
  * Create mock object (if possible)
  * @param  {string} path       Path to new object
  * @param  {any}    [template] Template to mock
@@ -299,8 +312,18 @@ function createMock(path, template, thisArg) {
                 return target[property]
             }
 
-            // Create or get child mock
+            // Handle external objects
             const subpath = resolvePath(path, property)
+            if (isExternalObject(target)) {
+                emitDebug(`Getting "${subpath}" from external object`)
+                /** @type {import('isolated-vm').Reference} */
+                const externalObject = target
+                const transferredValue = createMock(subpath, externalObject.getSync(property))
+                onGetOrSetEvent('GetEvent', subpath, transferredValue)
+                return transferredValue
+            }
+
+            // Create or get child mock
             const exists = (property in target)
             if (!exists && HOOKS.has(subpath)) {
                 const hook = HOOKS.get(subpath)
@@ -377,9 +400,10 @@ function createMock(path, template, thisArg) {
                 const hookPath = target[ExternalFunctionSymbol]
                 const hook = HOOKS.get(hookPath)
                 if (hook && 'function' in hook) {
-                    const returns = hook.function.applySyncPromise(undefined, argArray, {
+                    const maybeExternal = hook.function.applySyncPromise(undefined, argArray, {
                         arguments: { copy: true },
                     })
+                    const returns = createMock(resolvePath(path, '()'), maybeExternal, thisArg ?? realThisArg)
                     onCallEvent(path, argArray, returns, false)
                     return returns
                 }
