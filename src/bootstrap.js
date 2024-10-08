@@ -76,6 +76,66 @@ for (const item of RAW_HOOKS.copySync()) {
     HOOKS.set(item.path, item)
 }
 
+/**
+ * Is external object
+ * @param  {any}     input Input variable
+ * @return {boolean}       Whether input is an external object
+ */
+function isExternalObject(input) {
+    return (
+        typeof input === 'object' &&
+        input?.constructor?.name === 'Reference' &&
+        input?.typeof !== undefined
+    )
+}
+
+/**
+ * Create external proxy
+ * @param  {string} path          Path to new object
+ * @param  {any}    maybeExternal External object to wrap
+ * @return {any}                  External object wrapped in a proxy
+ */
+function createExternalProxy(path, maybeExternal) {
+    // Skip transferred objects (not external)
+    if (!isExternalObject(maybeExternal)) {
+        return createMock(path, maybeExternal)
+    }
+
+    /** @type {import('isolated-vm').Reference} */
+    const ref = maybeExternal
+    const target = (ref.typeof === 'function') ? () => {} : {} // eslint-disable-line @typescript-eslint/no-empty-function
+    return new Proxy(target, {
+        get(target, property) {
+            if (typeof property === 'symbol') {
+                return target[property]
+            }
+
+            // Get property value or reference
+            let newValue = ref.getSync(property, { reference: true })
+            if (newValue.typeof !== 'object' && newValue.typeof !== 'function') {
+                newValue = newValue.copySync()
+            }
+
+            // Wrap in external proxy
+            const subpath = resolvePath(path, property)
+            const newProxy = createExternalProxy(subpath, newValue)
+
+            // Return and emit value
+            onGetOrSetEvent('GetEvent', subpath, newProxy)
+            return newProxy
+        },
+        apply(target, thisArg, argArray) {
+            const maybeExternal = ref.applySyncPromise(undefined, argArray, {
+                arguments: { copy: true },
+            })
+            const subpath = resolvePath(path, '()')
+            const returns = createExternalProxy(subpath, maybeExternal)
+            onCallEvent(path, argArray, returns, false)
+            return returns
+        }
+    })
+}
+
 
 //#region Utils
 
@@ -237,19 +297,6 @@ function isMock(object) {
 }
 
 /**
- * Is external object
- * @param  {any}     input Input variable
- * @return {boolean}       Whether input is an external object
- */
-function isExternalObject(input) {
-    return (
-        typeof input === 'object' &&
-        input.constructor?.name === 'Reference' &&
-        input.typeof !== undefined
-    )
-}
-
-/**
  * Create mock object (if possible)
  * @param  {string} path       Path to new object
  * @param  {any}    [template] Template to mock
@@ -312,18 +359,8 @@ function createMock(path, template, thisArg) {
                 return target[property]
             }
 
-            // Handle external objects
-            const subpath = resolvePath(path, property)
-            if (isExternalObject(target)) {
-                emitDebug(`Getting "${subpath}" from external object`)
-                /** @type {import('isolated-vm').Reference} */
-                const externalObject = target
-                const transferredValue = createMock(subpath, externalObject.getSync(property))
-                onGetOrSetEvent('GetEvent', subpath, transferredValue)
-                return transferredValue
-            }
-
             // Create or get child mock
+            const subpath = resolvePath(path, property)
             const exists = (property in target)
             if (!exists && HOOKS.has(subpath)) {
                 const hook = HOOKS.get(subpath)
@@ -403,7 +440,7 @@ function createMock(path, template, thisArg) {
                     const maybeExternal = hook.function.applySyncPromise(undefined, argArray, {
                         arguments: { copy: true },
                     })
-                    const returns = createMock(resolvePath(path, '()'), maybeExternal, thisArg ?? realThisArg)
+                    const returns = createExternalProxy(resolvePath(path, '()'), maybeExternal)
                     onCallEvent(path, argArray, returns, false)
                     return returns
                 }

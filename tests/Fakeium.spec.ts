@@ -929,4 +929,28 @@ describe('Fakeium hooks', () => {
         expect(fnGotCalled).to.be.true
         fakeium.dispose()
     })
+
+    it('supports returning nested functions in hooked functions', async () => {
+        let innerGotCalled = false
+        const fakeium = new Fakeium({ logger })
+        fakeium.hook('something', () => {
+            return {
+                a: () => {
+                    return {
+                        b: () => {
+                            innerGotCalled = true
+                            return null
+                        },
+                    }
+                },
+            }
+        })
+        await fakeium.run('index.js',
+            'const fn = something();\n' +
+            'fn.a().b();\n'
+        )
+        expect(fakeium.getReport().has({ path: 'something().a().b', returns: { literal: null } })).to.be.true
+        expect(innerGotCalled).to.be.true
+        fakeium.dispose()
+    })
 })
