@@ -42,6 +42,9 @@ const EVENT_PROXY = $1 // eslint-disable-line no-undef
 /** @type {import('isolated-vm').Reference} */
 const DEBUG_PROXY = $2 // eslint-disable-line no-undef
 
+/** @type {import('isolated-vm').Reference} */
+const AWAIT_PROXY = $3 // eslint-disable-line no-undef
+
 /**
  * Next value ID
  */
@@ -63,11 +66,20 @@ function emitDebug(...args) {
     DEBUG_PROXY.applyIgnored(undefined, args.map(item => `${item}`), { arguments: { copy: true } })
 }
 
+/**
+ * Await reference synchronously
+ * @param  {import('isolated-vm').Reference} ref External object reference
+ * @return {import('isolated-vm').Reference}     Awaited external object reference
+ */
+function awaitReference(ref) {
+    return AWAIT_PROXY.applySyncPromise(undefined, [ref])
+}
+
 
 //#region Hooks
 
 /** @type {import('isolated-vm').Reference<import('./hooks').Hook[]>} */
-const RAW_HOOKS = $3 // eslint-disable-line no-undef
+const RAW_HOOKS = $4 // eslint-disable-line no-undef
 
 /** @type {Map<string,import('./hooks').Hook>} */
 const HOOKS = new Map()
@@ -101,8 +113,13 @@ function createExternalProxy(path, maybeExternal) {
         return createMock(path, maybeExternal)
     }
 
+    // Copy transferable objects
     /** @type {import('isolated-vm').Reference} */
     const ref = maybeExternal
+    if (ref.typeof !== 'object' && ref.typeof !== 'function') {
+        return createMock(path, ref.copySync())
+    }
+
     const target = (ref.typeof === 'function') ? () => {} : {} // eslint-disable-line @typescript-eslint/no-empty-function
     return new Proxy(target, {
         get(target, property) {
@@ -110,30 +127,53 @@ function createExternalProxy(path, maybeExternal) {
                 return target[property]
             }
 
-            // Get property value or reference
-            let newValue = ref.getSync(property, { reference: true })
-            if (newValue.typeof !== 'object' && newValue.typeof !== 'function') {
-                newValue = newValue.copySync()
+            // Ignore promises, they are resolved outside the sandbox
+            if (property === 'then') {
+                return undefined
             }
 
-            // Wrap in external proxy
+            // Wrap in a proxy and return
+            const newValue = ref.getSync(property, { reference: true })
             const subpath = resolvePath(path, property)
             const newProxy = createExternalProxy(subpath, newValue)
-
-            // Return and emit value
             onGetOrSetEvent('GetEvent', subpath, newProxy)
             return newProxy
         },
         apply(target, thisArg, argArray) {
-            const maybeExternal = ref.applySyncPromise(undefined, argArray, {
-                arguments: { copy: true },
-            })
-            const subpath = resolvePath(path, '()')
-            const returns = createExternalProxy(subpath, maybeExternal)
-            onCallEvent(path, argArray, returns, false)
-            return returns
+            return callExternalFunction(path, ref, argArray)
         }
     })
+}
+
+/**
+ * Call external function
+ * @param  {string}                                    path     Path to function
+ * @param  {import('isolated-vm').Reference<Function>} ref      External object reference
+ * @param  {any[]}                                     argArray Arguments array
+ * @return {any}                                                Return value (wrapped in a proxy if needed)
+ */
+function callExternalFunction(path, ref, argArray) {
+    // Validate argument types
+    let shouldCopyArguments = true
+    for (const item of argArray) {
+        if (typeof item === 'function') {
+            shouldCopyArguments = false
+            break
+        }
+    }
+
+    // Invoke external function
+    const resultRef = ref.applySync(undefined, argArray, {
+        arguments: { copy: shouldCopyArguments },
+        result: { reference: true },
+    })
+    const awaitedResultRef = awaitReference(resultRef)
+
+    // Wrap in a proxy and return
+    const subpath = resolvePath(path, '()')
+    const returns = createExternalProxy(subpath, awaitedResultRef)
+    onCallEvent(path, argArray, returns, false)
+    return returns
 }
 
 
@@ -437,12 +477,7 @@ function createMock(path, template, thisArg) {
                 const hookPath = target[ExternalFunctionSymbol]
                 const hook = HOOKS.get(hookPath)
                 if (hook && 'function' in hook) {
-                    const maybeExternal = hook.function.applySyncPromise(undefined, argArray, {
-                        arguments: { copy: true },
-                    })
-                    const returns = createExternalProxy(resolvePath(path, '()'), maybeExternal)
-                    onCallEvent(path, argArray, returns, false)
-                    return returns
+                    return callExternalFunction(path, hook.function, argArray)
                 }
                 emitDebug(`Trying to invoke non-existing external function: "${hookPath}"`)
             }

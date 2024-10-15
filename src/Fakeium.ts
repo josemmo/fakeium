@@ -450,16 +450,26 @@ export class Fakeium {
      * @param context Execution context
      */
     private async setupContext(context: ivm.Context): Promise<void> {
+        const logEvent = (event: ReportEvent, nextValueId: number) => {
+            this.report.add(event)
+            this.nextValueId = nextValueId
+        }
+        const logDebug = (...args: string[])  => this.options.logger?.debug('<SANDBOX>', ...args)
+        const awaitReference = async (ref: ivm.Reference) => {
+            let value = ref.deref()
+            if (value instanceof Promise) {
+                value = await value
+            }
+            return new ivm.Reference(value)
+        }
         await context.evalClosure(
             BOOTSTRAP_CODE,
             [
-                this.nextValueId,
-                (event: ReportEvent, nextValueId: number) => {
-                    this.report.add(event)
-                    this.nextValueId = nextValueId
-                },
-                (...args: string[])  => this.options.logger?.debug('<SANDBOX>', ...args),
-                Array.from(this.hooks.values()),
+                this.nextValueId,                // $0
+                logEvent,                        // $1
+                logDebug,                        // $2
+                awaitReference,                  // $3
+                Array.from(this.hooks.values()), // $4
             ],
             {
                 arguments: {

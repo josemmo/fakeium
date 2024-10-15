@@ -880,6 +880,17 @@ describe('Fakeium hooks', () => {
         fakeium.dispose()
     })
 
+    it('supports hooking async functions', async () => {
+        const fakeium = new Fakeium({ logger })
+        fakeium.hook('something', async () => {
+            await new Promise(resolve => setTimeout(resolve, 250))
+            return 123_456
+        })
+        await fakeium.run('index.js', 'something()')
+        expect(fakeium.getReport().has({ path: 'something', returns: { literal: 123_456 } })).to.be.true
+        fakeium.dispose()
+    })
+
     it('supports returning non-transferable objects in hooked functions', async () => {
         let somethingGotCalled = false
         let fnGotCalled = false
@@ -950,6 +961,35 @@ describe('Fakeium hooks', () => {
             'fn.a().b();\n'
         )
         expect(fakeium.getReport().has({ path: 'something().a().b', returns: { literal: null } })).to.be.true
+        expect(innerGotCalled).to.be.true
+        fakeium.dispose()
+    })
+
+    it('supports directly returning a function in hooked functions', async () => {
+        let innerGotCalled = false
+        const fakeium = new Fakeium({ logger })
+        fakeium.hook('require', () => {
+            return () => {
+                return {
+                    body: {
+                        on: (event: string, cb: (() => void)) => {
+                            expect(event).to.equal('finish')
+                            expect(cb).to.be.a('function')
+                            innerGotCalled = true
+                        },
+                    },
+                }
+            }
+        })
+        await fakeium.run('index.js',
+            'const fetch = require("node-fetch");\n' +
+            '(async () => {\n' +
+            '    const res = await fetch("https://example.com/");\n' +
+            '    res.body.on("finish", () => {\n' +
+            '        console.log("done!");\n' +
+            '    });\n' +
+            '})();\n'
+        )
         expect(innerGotCalled).to.be.true
         fakeium.dispose()
     })
