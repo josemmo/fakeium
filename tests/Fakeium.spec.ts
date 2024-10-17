@@ -993,4 +993,21 @@ describe('Fakeium hooks', () => {
         expect(innerGotCalled).to.be.true
         fakeium.dispose()
     })
+
+    it('discards non-cloneable arguments in hooked functions', async () => {
+        const fakeium = new Fakeium({ logger })
+        fakeium.hook('test', (...args: unknown[]) => {
+            expect(args).to.be.deep.equal(['string', {}, {}, { cloneable: true }])
+            return true
+        })
+        await fakeium.run('index.js',
+            'const a = "string";\n' +
+            'const b = Symbol("unsupported type");\n' +
+            'const c = thisIsAMock;\n' +
+            'const d = { cloneable: true };\n' +
+            'test(a, b, c, d);\n'
+        )
+        expect(fakeium.getReport().has({ path: 'test', returns: { literal: true } })).to.be.true
+        fakeium.dispose()
+    })
 })

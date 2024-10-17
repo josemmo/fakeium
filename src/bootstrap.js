@@ -123,8 +123,9 @@ function createExternalProxy(path, maybeExternal) {
     const target = (ref.typeof === 'function') ? () => {} : {} // eslint-disable-line @typescript-eslint/no-empty-function
     return new Proxy(target, {
         get(target, property) {
+            // Handle symbol properties
             if (typeof property === 'symbol') {
-                return target[property]
+                return (property === MockSymbol) ? MockSymbol : target[property]
             }
 
             // Ignore promises, they are resolved outside the sandbox
@@ -153,17 +154,28 @@ function createExternalProxy(path, maybeExternal) {
  * @return {any}                                                Return value (wrapped in a proxy if needed)
  */
 function callExternalFunction(path, ref, argArray) {
-    // Validate argument types
     let shouldCopyArguments = true
+    const filteredArgArray = []
     for (const item of argArray) {
-        if (typeof item === 'function') {
-            shouldCopyArguments = false
-            break
+        // Unsupported types
+        if (typeof item === 'symbol' || isMock(item)) {
+            filteredArgArray.push({})
+            continue
         }
+
+        // Non-transferable values
+        if (typeof item === 'function') {
+            filteredArgArray.push(item)
+            shouldCopyArguments = false
+            continue
+        }
+
+        // Default case
+        filteredArgArray.push(item)
     }
 
     // Invoke external function
-    const resultRef = ref.applySync(undefined, argArray, {
+    const resultRef = ref.applySync(undefined, filteredArgArray, {
         arguments: { copy: shouldCopyArguments },
         result: { reference: true },
     })
