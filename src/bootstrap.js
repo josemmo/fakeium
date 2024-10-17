@@ -510,6 +510,12 @@ function createMock(path, template, thisArg) {
  * @param {any}   [valueToPropagate] Optional value to propagate as the first call argument
  */
 function visitCallback(candidates, valueToPropagate) {
+    // Taint ".on('error', fn)" callbacks
+    if (candidates[0] === 'error' && typeof candidates[1] === 'function' && !isMock(candidates[1])) {
+        candidates[1][VisitedSymbol] = VisitedSymbol
+    }
+
+    // Try to invoke candidates
     try {
         for (const callback of candidates) {
             if (typeof callback === 'function' && !isMock(callback) && callback[VisitedSymbol] !== VisitedSymbol) {
