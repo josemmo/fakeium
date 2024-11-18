@@ -128,9 +128,9 @@ describe('Report', () => {
         expect(report.find({ arguments: [] })).to.equal(events[4])
 
         // Test "has" method
-        expect(report.has({ type: 'GetEvent' })).to.be.true
-        expect(report.has({ value: { literal: 'missing' } })).to.be.false
-        expect(report.has({ path: 'callMe' })).to.be.true
-        expect(report.has({ path: 'doNotCallMe' })).to.be.false
+        expect(report.has({ type: 'GetEvent' })).to.equal(true)
+        expect(report.has({ value: { literal: 'missing' } })).to.equal(false)
+        expect(report.has({ path: 'callMe' })).to.equal(true)
+        expect(report.has({ path: 'doNotCallMe' })).to.equal(false)
     })
 })

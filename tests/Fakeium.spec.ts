@@ -316,18 +316,18 @@ describe('Fakeium sandbox', () => {
         const fakeium = new Fakeium({ logger })
 
         await fakeium.run('first.js', 'first()')
-        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'first', returns: { ref: 2 } })).to.be.true
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'first', returns: { ref: 2 } })).to.equal(true)
         fakeium.getReport().clear()
 
         await fakeium.run('second.js', 'second()')
-        expect(fakeium.getReport().has({ path: 'first' })).to.be.false
-        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'second', returns: { ref: 4 } })).to.be.true
+        expect(fakeium.getReport().has({ path: 'first' })).to.equal(false)
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'second', returns: { ref: 4 } })).to.equal(true)
         fakeium.dispose()
 
         await fakeium.run('third.js', 'third()')
-        expect(fakeium.getReport().has({ path: 'first' })).to.be.false
-        expect(fakeium.getReport().has({ path: 'second' })).to.be.false
-        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'third', returns: { ref: 2 } })).to.be.true
+        expect(fakeium.getReport().has({ path: 'first' })).to.equal(false)
+        expect(fakeium.getReport().has({ path: 'second' })).to.equal(false)
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'third', returns: { ref: 2 } })).to.equal(true)
     })
 
     it('resolves paths in both dot and bracket notation', async () => {
@@ -337,9 +337,9 @@ describe('Fakeium sandbox', () => {
             'a.b.c.d[\'with space\'].e;\n' +
             'a.b.$1;\n'
         )
-        expect(fakeium.getReport().has({ type: 'GetEvent', path: 'a.b.c[123]' })).to.be.true
-        expect(fakeium.getReport().has({ type: 'GetEvent', path: 'a.b.c.d["with space"].e' })).to.be.true
-        expect(fakeium.getReport().has({ type: 'GetEvent', path: 'a.b.$1' })).to.be.true
+        expect(fakeium.getReport().has({ type: 'GetEvent', path: 'a.b.c[123]' })).to.equal(true)
+        expect(fakeium.getReport().has({ type: 'GetEvent', path: 'a.b.c.d["with space"].e' })).to.equal(true)
+        expect(fakeium.getReport().has({ type: 'GetEvent', path: 'a.b.$1' })).to.equal(true)
         fakeium.dispose()
     })
 
@@ -350,7 +350,7 @@ describe('Fakeium sandbox', () => {
             type: 'CallEvent',
             path: 'console.log',
             arguments: [ { ref: 3 }, { literal: 123 } ],
-        })).to.be.true
+        })).to.equal(true)
         fakeium.dispose()
         expect(fakeium.getReport().size()).to.equal(0)
     })
@@ -390,19 +390,19 @@ describe('Fakeium sandbox', () => {
             '    reachedEnd(sameRes);\n' +
             '})();\n'
         )
-        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'aPromise', returns: { ref: 2 } })).to.be.true
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'aPromise', returns: { ref: 2 } })).to.equal(true)
         expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'console.log',
             arguments: [ { ref: 2 } ],
             returns: { literal: undefined },
-        })).to.be.true
+        })).to.equal(true)
         expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'reachedEnd',
             arguments: [ { ref: 2 } ],
             returns: { ref: 6 },
-        })).to.be.true
+        })).to.equal(true)
         fakeium.dispose()
     })
 
@@ -487,7 +487,7 @@ describe('Fakeium sandbox', () => {
             path: 'eval',
             arguments: [ { literal: '1+1' } ],
             returns: { literal: 2 },
-        })).to.be.true
+        })).to.equal(true)
         fakeium.dispose()
     })
 
@@ -514,14 +514,14 @@ describe('Fakeium sandbox', () => {
             arguments: [ { literal: '2021-01-02' } ],
             returns: { ref: 2 },
             isConstructor: true,
-        })).to.be.true
+        })).to.equal(true)
         expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'Date().toJSON',
             arguments: [],
             returns: { literal: '2021-01-02T00:00:00.000Z' },
             isConstructor: false,
-        })).to.be.true
+        })).to.equal(true)
 
         expect(fakeium.getReport().has({
             type: 'CallEvent',
@@ -529,14 +529,14 @@ describe('Fakeium sandbox', () => {
             arguments: [ { literal: 16 } ],
             returns: { ref: 7 },
             isConstructor: true,
-        })).to.be.true
+        })).to.equal(true)
         expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'crypto.getRandomValues',
             arguments: [ { ref: 7 } ],
             returns: { ref: 8 },
             isConstructor: false,
-        })).to.be.true
+        })).to.equal(true)
 
         expect(fakeium.getReport().has({
             type: 'CallEvent',
@@ -544,26 +544,26 @@ describe('Fakeium sandbox', () => {
             arguments: [ { literal: '2021-01-02T00:00:00.000Z' } ],
             returns: { ref: 11 },
             isConstructor: true,
-        })).to.be.true
+        })).to.equal(true)
         expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'getAsyncThing',
             arguments: [ { ref: 11 } ],
             isConstructor: true,
-        })).to.be.true
+        })).to.equal(true)
 
         expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'XMLHttpRequest',
             arguments: [],
             isConstructor: true,
-        })).to.be.true
+        })).to.equal(true)
         expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'XMLHttpRequest().open',
             arguments: [ { literal: 'GET' }, { literal: 'https://www.example.com/' } ],
             isConstructor: false,
-        })).to.be.true
+        })).to.equal(true)
 
         fakeium.dispose()
     })
@@ -586,25 +586,25 @@ describe('Fakeium sandbox', () => {
             path: 'something',
             arguments: [ { literal: 1 }, { literal: 2 }, { literal: 3 } ],
             isConstructor: false,
-        })).to.be.true
+        })).to.equal(true)
         expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'another.thing',
             arguments: [ { literal: 'hey' } ],
             isConstructor: false,
-        })).to.be.true
+        })).to.equal(true)
         expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'another.something',
             arguments: [],
             isConstructor: false,
-        })).to.be.true
+        })).to.equal(true)
         expect(fakeium.getReport().has({
             type: 'CallEvent',
             path: 'done',
             arguments: [],
             isConstructor: false,
-        })).to.be.true
+        })).to.equal(true)
         fakeium.dispose()
     })
 
@@ -620,8 +620,8 @@ describe('Fakeium sandbox', () => {
             '    also.gotCalled();\n' +
             '});\n'
         )
-        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'navigator.gotCalled' })).to.be.true
-        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'also.gotCalled' })).to.be.true
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'navigator.gotCalled' })).to.equal(true)
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'also.gotCalled' })).to.equal(true)
         fakeium.dispose()
     })
 
@@ -642,7 +642,7 @@ describe('Fakeium sandbox', () => {
             '    console.log(test.hey());\n' +
             '}\n'
         )
-        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'getItems()[3].hey', arguments: [] })).to.be.true
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'getItems()[3].hey', arguments: [] })).to.equal(true)
         fakeium.dispose()
     })
 
@@ -703,7 +703,7 @@ describe('Fakeium sandbox', () => {
             '    winLoad();\n' +
             '}\n'
         )
-        expect(fakeium.getReport().has({ arguments: [ { literal: 'Doing stuff' }] })).to.be.true
+        expect(fakeium.getReport().has({ arguments: [ { literal: 'Doing stuff' }] })).to.equal(true)
         fakeium.dispose()
     })
 })
@@ -772,11 +772,11 @@ describe('Fakeium hooks', () => {
             '    const response = await browser.tabs.sendMessage(tab.id, { greeting: "hello" });\n' +
             '})();\n'
         )
-        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'browser.tabs.query' })).to.be.true
-        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'browser.tabs.sendMessage' })).to.be.true
-        expect(fakeium.getReport().has({ path: 'chrome.tabs.query' })).to.be.false
-        expect(fakeium.getReport().has({ path: 'chrome.tabs.sendMessage' })).to.be.false
-        expect(fakeium.getReport().has({ path: 'chrome' })).to.be.false
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'browser.tabs.query' })).to.equal(true)
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'browser.tabs.sendMessage' })).to.equal(true)
+        expect(fakeium.getReport().has({ path: 'chrome.tabs.query' })).to.equal(false)
+        expect(fakeium.getReport().has({ path: 'chrome.tabs.sendMessage' })).to.equal(false)
+        expect(fakeium.getReport().has({ path: 'chrome' })).to.equal(false)
         fakeium.dispose()
     })
 
@@ -793,7 +793,7 @@ describe('Fakeium hooks', () => {
             type: 'CallEvent',
             path: 'alert',
             arguments: [ { literal: 'I can be overwritten from inside the sandbox' }],
-        })).to.be.true
+        })).to.equal(true)
         fakeium.dispose()
     })
 
@@ -817,12 +817,12 @@ describe('Fakeium hooks', () => {
             'anotherThing(res);\n' +
             'test.something.else();\n'
         )
-        expect(fakeium.getReport().has({ path: 'sample.value', value: { literal: 'hello!' } })).to.be.true
-        expect(fakeium.getReport().has({ path: 'undefinedIsAlsoValid', value: { literal: undefined } })).to.be.true
-        expect(fakeium.getReport().has({ path: 'hookMe', returns: { literal: 33 } })).to.be.true
-        expect(fakeium.getReport().has({ path: 'something', returns: { literal: 123 } })).to.be.true
-        expect(somethingGotCalled).to.be.true
-        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'another.reference[0].to.somewhere.else' })).to.be.true
+        expect(fakeium.getReport().has({ path: 'sample.value', value: { literal: 'hello!' } })).to.equal(true)
+        expect(fakeium.getReport().has({ path: 'undefinedIsAlsoValid', value: { literal: undefined } })).to.equal(true)
+        expect(fakeium.getReport().has({ path: 'hookMe', returns: { literal: 33 } })).to.equal(true)
+        expect(fakeium.getReport().has({ path: 'something', returns: { literal: 123 } })).to.equal(true)
+        expect(somethingGotCalled).to.equal(true)
+        expect(fakeium.getReport().has({ type: 'CallEvent', path: 'another.reference[0].to.somewhere.else' })).to.equal(true)
         fakeium.dispose()
     })
 
@@ -846,36 +846,36 @@ describe('Fakeium hooks', () => {
         )
 
         // Set events should be logged regardless of writable state
-        expect(fakeium.getReport().has({ path: 'writable', value: { literal: 'a' } })).to.be.true
-        expect(fakeium.getReport().has({ path: 'writable', value: { literal: 'ab' } })).to.be.true
-        expect(fakeium.getReport().has({ path: 'readOnly', value: { literal: 'a' } })).to.be.true
-        expect(fakeium.getReport().has({ path: 'readOnly', value: { literal: 'ab' } })).to.be.true
-        expect(fakeium.getReport().has({ type: 'SetEvent', path: 'writableFn' })).to.be.true
-        expect(fakeium.getReport().has({ type: 'SetEvent', path: 'readOnlyFn' })).to.be.true
+        expect(fakeium.getReport().has({ path: 'writable', value: { literal: 'a' } })).to.equal(true)
+        expect(fakeium.getReport().has({ path: 'writable', value: { literal: 'ab' } })).to.equal(true)
+        expect(fakeium.getReport().has({ path: 'readOnly', value: { literal: 'a' } })).to.equal(true)
+        expect(fakeium.getReport().has({ path: 'readOnly', value: { literal: 'ab' } })).to.equal(true)
+        expect(fakeium.getReport().has({ type: 'SetEvent', path: 'writableFn' })).to.equal(true)
+        expect(fakeium.getReport().has({ type: 'SetEvent', path: 'readOnlyFn' })).to.equal(true)
 
         // But changes should not persisted to read-only paths
-        expect(fakeium.getReport().has({ arguments: [ { literal: 'writable is "ab"' } ] })).to.be.true
-        expect(fakeium.getReport().has({ arguments: [ { literal: 'readOnly is "a"' } ] })).to.be.true
+        expect(fakeium.getReport().has({ arguments: [ { literal: 'writable is "ab"' } ] })).to.equal(true)
+        expect(fakeium.getReport().has({ arguments: [ { literal: 'readOnly is "a"' } ] })).to.equal(true)
         expect(fakeium.getReport().has({
             path: 'writableFn',
             returns: { literal: 'Y' },
             location: { line: 5 },
-        })).to.be.true
+        })).to.equal(true)
         expect(fakeium.getReport().has({
             path: 'writableFn',
             returns: { literal: 'Z' },
             location: { line: 7 },
-        })).to.be.true
+        })).to.equal(true)
         expect(fakeium.getReport().has({
             path: 'readOnlyFn',
             returns: { literal: 'Y' },
             location: { line: 8 },
-        })).to.be.true
+        })).to.equal(true)
         expect(fakeium.getReport().has({
             path: 'readOnlyFn',
             returns: { literal: 'Y' },
             location: { line: 10 },
-        })).to.be.true
+        })).to.equal(true)
 
         fakeium.dispose()
     })
@@ -887,7 +887,7 @@ describe('Fakeium hooks', () => {
             return 123_456
         })
         await fakeium.run('index.js', 'something()')
-        expect(fakeium.getReport().has({ path: 'something', returns: { literal: 123_456 } })).to.be.true
+        expect(fakeium.getReport().has({ path: 'something', returns: { literal: 123_456 } })).to.equal(true)
         fakeium.dispose()
     })
 
@@ -932,12 +932,12 @@ describe('Fakeium hooks', () => {
             '    }\n' +
             '})();\n'
         )
-        expect(fakeium.getReport().has({ path: 'something().a', value: { literal: 100 } } )).to.be.true
-        expect(fakeium.getReport().has({ path: 'something().b', value: { literal: 200 } } )).to.be.true
-        expect(fakeium.getReport().has({ path: 'something().c.d', value: { literal: 'hello' } } )).to.be.true
-        expect(fakeium.getReport().has({ path: 'something().fn', returns: { literal: 123 } })).to.be.true
-        expect(somethingGotCalled).to.be.true
-        expect(fnGotCalled).to.be.true
+        expect(fakeium.getReport().has({ path: 'something().a', value: { literal: 100 } } )).to.equal(true)
+        expect(fakeium.getReport().has({ path: 'something().b', value: { literal: 200 } } )).to.equal(true)
+        expect(fakeium.getReport().has({ path: 'something().c.d', value: { literal: 'hello' } } )).to.equal(true)
+        expect(fakeium.getReport().has({ path: 'something().fn', returns: { literal: 123 } })).to.equal(true)
+        expect(somethingGotCalled).to.equal(true)
+        expect(fnGotCalled).to.equal(true)
         fakeium.dispose()
     })
 
@@ -960,8 +960,8 @@ describe('Fakeium hooks', () => {
             'const fn = something();\n' +
             'fn.a().b();\n'
         )
-        expect(fakeium.getReport().has({ path: 'something().a().b', returns: { literal: null } })).to.be.true
-        expect(innerGotCalled).to.be.true
+        expect(fakeium.getReport().has({ path: 'something().a().b', returns: { literal: null } })).to.equal(true)
+        expect(innerGotCalled).to.equal(true)
         fakeium.dispose()
     })
 
@@ -990,7 +990,7 @@ describe('Fakeium hooks', () => {
             '    });\n' +
             '})();\n'
         )
-        expect(innerGotCalled).to.be.true
+        expect(innerGotCalled).to.equal(true)
         fakeium.dispose()
     })
 
@@ -1007,7 +1007,7 @@ describe('Fakeium hooks', () => {
             'const d = { cloneable: true };\n' +
             'test(a, b, c, d);\n'
         )
-        expect(fakeium.getReport().has({ path: 'test', returns: { literal: true } })).to.be.true
+        expect(fakeium.getReport().has({ path: 'test', returns: { literal: true } })).to.equal(true)
         fakeium.dispose()
     })
 })

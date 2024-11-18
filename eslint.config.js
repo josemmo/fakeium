@@ -9,6 +9,10 @@ export default tseslint.config(
         rules: {
             '@typescript-eslint/no-extraneous-class': 'off',
             '@typescript-eslint/no-invalid-void-type': 'off',
+            '@typescript-eslint/no-unused-vars': [
+                'error',
+                { caughtErrorsIgnorePattern: '^_' },
+            ],
             'no-regex-spaces': 'off',
         },
     },
