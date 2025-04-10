@@ -212,7 +212,7 @@ export class Fakeium {
     public async run(specifier: string, b?: FakeiumRunOptions | SourceCode, c?: FakeiumRunOptions): Promise<void> {
         let sourceCode: SourceCode | undefined = undefined
         let options: FakeiumRunOptions
-        if (typeof b === 'string' || b instanceof Buffer) {
+        if (typeof b === 'string' || Buffer.isBuffer(b)) {
             sourceCode = b
             options = c || {}
         } else {
