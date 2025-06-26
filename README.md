@@ -132,3 +132,49 @@ This will produce the following output:
     location: { filename: 'https://localhost/index.js', line: 2, column: 9 }
 }
 ```
+
+## Working with Hooks
+The Fakeium sandbox can be customized for more tailored needs through the use of *hooks*.
+Developers can use hooks to modify variables from the sandbox's global scope, as well as to expose bindings that run code outside the isolated environment (for instance, to perform network requests).
+
+Hooks are defined using the following arguments:
+```ts
+fakeium.hook(path: string, value: unknown, isWritable = true): void;
+```
+
+There are three types of hooks, that behave differently, depending on the hooked value:
+
+### Serializable values
+Strings, numbers, plain objects, `ArrayBuffer`s, `undefined` and other variables that can support serialization through the [structured clone algorithm](https://developer.mozilla.org/docs/Web/API/Web_Workers_API/Structured_clone_algorithm) are **copied** into the sandbox.
+
+```js
+fakeium.hook('navigator.userAgent', 'Mozilla/5.0 (Android 4.4; Mobile; rv:41.0) Gecko/41.0 Firefox/41.0');
+fakeium.hook('config', {
+    isDesktop: false,
+    seed: 42,
+});
+```
+
+### Bindings (functions)
+When passing a function, Fakeium exposes a binding inside the sandbox that, when invoked, will execute the function in the **outside world**.
+Bindings can receive arguments and return values, provided they are serializable through the [structured clone algorithm](https://developer.mozilla.org/docs/Web/API/Web_Workers_API/Structured_clone_algorithm).
+Returning promises or awaitable values is also supported.
+
+> [!WARNING]
+> Be careful about what logic you expose to the sandbox when running untrusted code.
+
+```js
+fakeium.hook('getIpAddress', async () => {
+    return await fetch('/api/get-ipv4').then(res => res.json());
+})
+```
+
+### References
+When passing a `Reference` instance, Fakeium will redirect all calls that point to the hook to a different path **inside** the sandbox.
+By default, Fakeium uses this feature to alias the `globalThis` variable to `window`, among other variables.
+
+```js
+import { Reference } from 'fakeium';
+
+fakeium.hook('anotherWindow', new Reference('globalThis'));
+```
