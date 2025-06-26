@@ -145,7 +145,7 @@ fakeium.hook(path: string, value: unknown, isWritable = true): void;
 There are three types of hooks, that behave differently, depending on the hooked value:
 
 ### Serializable values
-Strings, numbers, plain objects, `ArrayBuffer`s, `undefined` and other variables that can support serialization through the [structured clone algorithm](https://developer.mozilla.org/docs/Web/API/Web_Workers_API/Structured_clone_algorithm) are **copied** into the sandbox.
+Strings, numbers, plain objects, `ArrayBuffer`s, `undefined` and other variables that support serialization through the [structured clone algorithm](https://developer.mozilla.org/docs/Web/API/Web_Workers_API/Structured_clone_algorithm) are **copied** into the sandbox.
 
 ```js
 fakeium.hook('navigator.userAgent', 'Mozilla/5.0 (Android 4.4; Mobile; rv:41.0) Gecko/41.0 Firefox/41.0');
