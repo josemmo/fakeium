@@ -20,19 +20,19 @@
         "test": "mocha --import=tsx tests/**/*.spec.ts"
     },
     "dependencies": {
-        "@types/node": "^22.14.0",
-        "isolated-vm": "^5.0.4"
+        "@types/node": "^24.5.2",
+        "isolated-vm": "^6.0.1"
     },
     "devDependencies": {
-        "@eslint/js": "^9.24.0",
-        "@types/chai": "^5.2.1",
+        "@eslint/js": "^9.36.0",
+        "@types/chai": "^5.2.2",
         "@types/mocha": "^10.0.10",
-        "chai": "^5.2.0",
-        "eslint": "^9.24.0",
-        "mocha": "^11.1.0",
-        "pkgroll": "^2.12.1",
-        "tsx": "^4.19.3",
-        "typescript": "^5.8.3",
-        "typescript-eslint": "^8.29.1"
+        "chai": "^6.0.1",
+        "eslint": "^9.36.0",
+        "mocha": "^11.7.2",
+        "pkgroll": "^2.15.4",
+        "tsx": "^4.20.6",
+        "typescript": "^5.9.2",
+        "typescript-eslint": "^8.44.1"
     }
 }
