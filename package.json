@@ -4,7 +4,7 @@
     "author": "José Miguel Moreno <josemmo@pm.me>",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/josemmo/fakeium"
+        "url": "git+https://github.com/josemmo/fakeium.git"
     },
     "homepage": "https://github.com/josemmo/fakeium",
     "license": "MIT",
