@@ -21,6 +21,7 @@ jobs:
         with:
           node-version: '22'
           cache: yarn
+          registry-url: https://registry.npmjs.org
 
       # Install dependencies
       - name: Install dependencies
